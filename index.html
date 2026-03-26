@@ -504,12 +504,11 @@ body.scroll-locked {
   background:var(--surface); border-radius:20px 20px 0 0;
   border:1px solid var(--border); border-bottom:none;
   max-height:min(88dvh,90vh);
-  overflow-y:auto; overflow-x:hidden;
+  overflow-y:auto; overflow-x:visible;
   overscroll-behavior:contain;
   transform:translateY(110%); transition:transform 0.3s var(--ease);
   padding-bottom:calc(16px + var(--safe-b));
   visibility:hidden;
-  /* Prevent the sheet from resizing when keyboard opens */
   will-change:transform;
 }
 .sheet.open { transform:translateY(0); visibility:visible }
@@ -838,7 +837,7 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
 .acat-val { font-size:0.84rem; font-weight:700; color:var(--text1); flex-shrink:0; text-align:right; min-width:52px }
 .acat-pct { font-size:0.82rem; color:#3B82F6; font-weight:700; flex-shrink:0; min-width:36px; text-align:right }
 /* ── CUSTOM DATE PICKER ── */
-.cal-wrap { position:relative }
+.cal-wrap { position:relative; z-index:0 }
 .cal-display {
   width:100%; padding:10px 12px; border:1px solid var(--border);
   border-radius:var(--r); background:var(--surface2); color:var(--text1);
@@ -846,13 +845,16 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
   display:flex; align-items:center; justify-content:space-between;
   cursor:pointer; transition:border-color 150ms; user-select:none;
 }
+.cal-display:hover { border-color:var(--blue) }
 .cal-display.empty { color:var(--text3) }
 .cal-popup {
-  margin-top:6px;
+  position:fixed;
   width:252px;
   background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
   overflow:hidden;
   animation:calIn 0.15s var(--ease) both;
+  z-index:9999;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
 }
 @keyframes calIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
 .cal-nav { display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-bottom:1px solid var(--border2) }
@@ -880,31 +882,40 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
 .cal-display:hover .cal-ico { opacity:1; color:var(--blue) }
 
 /* ── SCHOOL LEDGER EXTRAS ── */
-.class-strip {
+.class-stepper {
   position:sticky; top:57px; z-index:70;
   background:rgba(13,13,16,0.97);
   backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border2);
-  display:flex; align-items:center; gap:6px;
-  padding:8px 14px; overflow-x:auto; scrollbar-width:none;
+  display:flex; align-items:center; gap:0;
+  padding:0;
 }
-[data-theme="light"] .class-strip { background:var(--bg); border-bottom:1px solid var(--border) }
-.class-strip::-webkit-scrollbar { display:none }
-.cls-tab {
-  padding:5px 13px; border-radius:99px; font-size:0.75rem; font-weight:700;
-  border:1px solid var(--border); background:var(--surface2); color:var(--text3);
-  cursor:pointer; white-space:nowrap; flex-shrink:0;
-  transition:all 150ms; font-family:'Inter',sans-serif;
+[data-theme="light"] .class-stepper { background:var(--bg); border-bottom:1px solid var(--border) }
+.cls-step-btn {
+  width:48px; height:52px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer;
+  color:var(--text3); font-size:1.1rem;
+  transition:color 150ms, background 150ms;
+  font-family:'Inter',sans-serif;
 }
-.cls-tab.active { background:#3B82F6; border-color:#3B82F6; color:#fff }
-.cls-tab:not(.active):active { background:var(--surface3) }
-.cls-tab-add {
-  padding:5px 12px; border-radius:99px; font-size:0.75rem; font-weight:700;
-  border:1.5px dashed rgba(59,130,246,0.4); background:rgba(59,130,246,0.04);
-  color:#3B82F6; cursor:pointer; white-space:nowrap; flex-shrink:0;
-  font-family:'Inter',sans-serif; transition:all 150ms;
+.cls-step-btn:hover { color:var(--blue); background:rgba(59,130,246,0.06) }
+.cls-step-btn:disabled { color:var(--surface3); cursor:default }
+.cls-step-btn:disabled:hover { background:none }
+.cls-step-center {
+  flex:1; min-width:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:8px 4px; cursor:pointer; transition:background 120ms;
+  border-left:1px solid var(--border2); border-right:1px solid var(--border2);
 }
-.cls-tab-add:active { background:rgba(59,130,246,0.1) }
+.cls-step-center:hover { background:rgba(59,130,246,0.04) }
+.cls-step-name { font-size:0.9rem; font-weight:700; color:var(--text1); letter-spacing:-0.2px }
+.cls-step-meta { font-size:0.68rem; color:var(--text3); margin-top:2px }
+.cls-step-counter {
+  font-size:0.6rem; font-weight:600; color:var(--text3);
+  background:var(--surface2); border:1px solid var(--border);
+  padding:1px 6px; border-radius:99px; margin-top:3px; letter-spacing:0.3px;
+}
 .entry-row {
   display:flex; align-items:center; gap:11px; padding:11px 14px;
   border-bottom:1px solid var(--border2); cursor:pointer; transition:background 120ms;
@@ -997,19 +1008,11 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
       </div>
     </div>
   </div>
-  <div class="class-strip" id="class-strip"></div>
+  <div class="class-stepper" id="class-stepper"></div>
   <div class="container" id="classes-content"></div>
 </div>
 
 <!-- ══ OVERVIEW ══ -->
-<div id="page-overview" class="page">
-  <div class="top-header">
-    <div class="hdr-inner">
-      <div class="hdr-left"><div><div class="hdr-greeting">All Years</div><div class="hdr-name">Overview</div></div></div>
-    </div>
-  </div>
-  <div class="container" id="overview-content"></div>
-</div>
 
 <!-- ══ SETTINGS ══ -->
 <div id="page-settings" class="page">
@@ -1128,10 +1131,7 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
       <div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
       <span class="tab-label">Classes</span>
     </button>
-    <button class="tab-item" id="tab-overview" onclick="switchPage('overview')">
-      <div class="tab-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-      <span class="tab-label">Overview</span>
-    </button>
+
     <button class="tab-item" id="tab-settings" onclick="switchPage('settings')">
       <div class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
       <span class="tab-label">Settings</span>
@@ -1159,7 +1159,7 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
 <!-- ADD CLASS SHEET -->
 <div class="sheet" id="sheet-addClass">
   <div class="sheet-handle"></div>
-  <div class="sheet-hdr"><span class="sheet-title">Add Academic Class</span><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+  <div class="sheet-hdr"><span class="sheet-title" id="addClass-sheet-title">Add Academic Class</span><button class="sheet-close" onclick="closeSheet()">✕</button></div>
   <div class="sheet-body">
     <div class="fg"><label class="fl">Class / Grade</label><input class="fi" type="text" id="cls-name" placeholder="e.g. Class 1, LKG, Grade 6…"/></div>
     <div class="form-row2">
@@ -1235,7 +1235,7 @@ const DEF_CHECKLIST = [
   {id:"c1",label:"Collect all fee receipts",desc:"Keep physical & digital copies of every payment receipt",done:false},
   {id:"c2",label:"Set annual education budget",desc:"Plan total school spend for the academic year upfront",done:false},
   {id:"c3",label:"Track all category spends",desc:"Log expenses across tuition, books, uniform, transport",done:false},
-  {id:"c4",label:"Compare YoY fee increase",desc:"Note how fees have grown class-over-class",done:false},
+  {id:"c4",label:"Compare year-on-year fee increase",desc:"Note how fees have grown class-over-class",done:false},
   {id:"c5",label:"Uniform & books renewal plan",desc:"Budget for new purchases before each academic year",done:false},
   {id:"c6",label:"Extracurricular budget set",desc:"Allocate a fixed amount for activities per term",done:false},
   {id:"c7",label:"Emergency school fund",desc:"Keep a small buffer for unplanned school expenses",done:false},
@@ -1257,9 +1257,12 @@ let delExpId = null;
 
 // ─── PERSIST ────────────────────────────────────────────────────────
 function load(){
-  try{const r=localStorage.getItem(STORE);if(r){const p=JSON.parse(r);D={...D,...p};if(!D.checklist||!D.checklist.length)D.checklist=DEF_CHECKLIST.map(i=>({...i}))}}catch(e){}
+  try{
+    const r=localStorage.getItem(STORE);
+    if(r){const p=JSON.parse(r);D={...D,...p};if(!D.checklist||!D.checklist.length)D.checklist=DEF_CHECKLIST.map(i=>({...i}));}
+  }catch(e){}
 }
-function save(){localStorage.setItem(STORE,JSON.stringify(D))}
+function save(){localStorage.setItem(STORE,JSON.stringify(D));}
 
 // ─── THEME ──────────────────────────────────────────────────────────
 function setTheme(t){
@@ -1269,7 +1272,7 @@ function setTheme(t){
   const opt=document.getElementById("topt-"+t);if(opt)opt.classList.add("active");
   save();
 }
-function initTheme(){setTheme(D.theme||"dark")}
+function initTheme(){setTheme(D.theme||"dark");}
 
 // ─── FONT SIZE ───────────────────────────────────────────────────────
 function setFontSize(size,label){
@@ -1296,9 +1299,9 @@ function initFontSize(){
 // ─── GREETING ───────────────────────────────────────────────────────
 function greeting(){
   const h=new Date().getHours();
-  if(h<12)return"Good morning ☀️";
-  if(h<17)return"Good afternoon 🌤️";
-  return"Good evening 🌙";
+  if(h<12)return "Good morning \u2600\ufe0f";
+  if(h<17)return "Good afternoon \ud83c\udf24\ufe0f";
+  return "Good evening \ud83c\udf19";
 }
 
 // ─── NAVIGATION ─────────────────────────────────────────────────────
@@ -1310,7 +1313,6 @@ function switchPage(p){
   document.getElementById("tab-"+p).classList.add("active");
   if(p==="home")renderHome();
   if(p==="classes")renderClasses();
-  if(p==="overview")renderOverview();
   if(p==="settings")renderChecklist();
 }
 
@@ -1343,7 +1345,7 @@ function openAddExpense(){
   document.getElementById("exp-amt").value="";
   document.getElementById("exp-mode").value="UPI";
   document.getElementById("exp-note").value="";
-  document.getElementById("exp-date-cal-wrap").innerHTML = calPickerHTML("expdate", today());
+  document.getElementById("exp-date-cal-wrap").innerHTML=calPickerHTML("expdate",today());
   openSheet("expense");
 }
 function openEditExpense(id){
@@ -1354,7 +1356,7 @@ function openEditExpense(id){
   document.getElementById("exp-amt").value=e.amt;
   document.getElementById("exp-mode").value=e.mode;
   document.getElementById("exp-note").value=e.note||"";
-  document.getElementById("exp-date-cal-wrap").innerHTML = calPickerHTML("expdate", e.date||today());
+  document.getElementById("exp-date-cal-wrap").innerHTML=calPickerHTML("expdate",e.date||today());
   openSheet("expense");
 }
 
@@ -1365,10 +1367,12 @@ function saveStudent(){
   save();closeSheet();renderHeader();toast("Profile saved");
 }
 function renderHeader(){
-  const g=document.getElementById("hdr-greeting");const n=document.getElementById("hdr-name");
+  const g=document.getElementById("hdr-greeting");
+  const n=document.getElementById("hdr-name");
   if(g)g.textContent=greeting();
-  if(n)n.textContent=D.student?""+D.student+"'s Education":"School Ledger";
-  document.getElementById("avatar-dash").textContent=D.student?D.student[0].toUpperCase():"🎒";
+  if(n)n.textContent=D.student?D.student+"'s Education":"School Ledger";
+  const av=document.getElementById("avatar-dash");
+  if(av)av.textContent=D.student?D.student[0].toUpperCase():"🎒";
 }
 
 // ─── CLASS ───────────────────────────────────────────────────────────
@@ -1383,6 +1387,32 @@ function saveClass(){
   if(currentPage==="home")renderHome();
   if(currentPage==="classes")renderClasses();
   toast("Class added");
+}
+function openEditClass(id){
+  const c=D.classes.find(x=>x.id===id);if(!c)return;
+  document.getElementById("cls-name").value=c.name;
+  document.getElementById("cls-year").value=c.year||"";
+  document.getElementById("cls-school").value=c.school||"";
+  openSheet("addClass");
+  document.querySelector("#sheet-addClass .sheet-title").textContent="Edit Class";
+  document.querySelector("#sheet-addClass .btn-primary").onclick=function(){saveEditClass(id);};
+}
+function saveEditClass(id){
+  const i=D.classes.findIndex(c=>c.id===id);if(i===-1)return;
+  D.classes[i]={...D.classes[i],
+    name:document.getElementById("cls-name").value.trim()||D.classes[i].name,
+    year:document.getElementById("cls-year").value.trim(),
+    school:document.getElementById("cls-school").value.trim()
+  };
+  save();closeSheet();renderClasses();toast("Class updated");
+}
+function askDeleteClass(id){
+  showConfirm("Delete Class?","All expenses for this class will also be deleted.",function(){
+    D.expenses=D.expenses.filter(e=>e.classId!==id);
+    D.classes=D.classes.filter(c=>c.id!==id);
+    if(activeClsId===id)activeClsId=D.classes.length>0?D.classes[0].id:null;
+    save();renderClasses();renderHome();toast("Class deleted");
+  });
 }
 
 // ─── EXPENSE ─────────────────────────────────────────────────────────
@@ -1409,7 +1439,7 @@ function saveExpense(){
 // ─── DELETE ──────────────────────────────────────────────────────────
 function askDeleteExp(id){
   delExpId=id;
-  showConfirm("Delete Entry?","This expense entry will be permanently removed.",()=>{
+  showConfirm("Delete Entry?","This expense entry will be permanently removed.",function(){
     D.expenses=D.expenses.filter(e=>e.id!==delExpId);
     save();rerender();toast("Deleted");
   });
@@ -1421,7 +1451,7 @@ function showConfirm(title,sub,cb){
   confirmCb=cb;
   document.getElementById("confirm-title").textContent=title;
   document.getElementById("confirm-sub").textContent=sub;
-  document.getElementById("confirm-ok").onclick=()=>{closeConfirm();if(confirmCb)confirmCb();};
+  document.getElementById("confirm-ok").onclick=function(){closeConfirm();if(confirmCb)confirmCb();};
   document.getElementById("confirm-overlay").classList.add("open");
 }
 function closeConfirm(){document.getElementById("confirm-overlay").classList.remove("open");confirmCb=null;}
@@ -1439,27 +1469,32 @@ function renderChecklist(){
   const pctEl=document.getElementById("check-pct-text");if(pctEl)pctEl.textContent=pct+"%";
   const bar=document.getElementById("checklist-bar");if(bar)bar.style.width=pct+"%";
   const el=document.getElementById("checklist-items");if(!el)return;
-  el.innerHTML=D.checklist.map(item=>`
-    <div class="check-item ${item.done?"done":""}" onclick="toggleCheck('${item.id}')">
-      <div class="check-box">${item.done?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':""}</div>
-      <div><div class="check-label">${item.label}</div><div class="check-desc">${item.desc}</div></div>
-    </div>`).join("");
+  const chk = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  el.innerHTML=D.checklist.map(function(item){
+    return '<div class="check-item '+(item.done?"done":"")+'" onclick="toggleCheck(\''+item.id+'\')">'+
+      '<div class="check-box">'+(item.done?chk:"")+'</div>'+
+      '<div><div class="check-label">'+item.label+'</div><div class="check-desc">'+item.desc+'</div></div>'+
+      '</div>';
+  }).join("");
 }
 
 // ─── DATA TOOLS ──────────────────────────────────────────────────────
 function exportData(){
   const blob=new Blob([JSON.stringify(D,null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="school-ledger-backup.json";a.click();toast("Exported ✓");
+  a.download="school-ledger-backup.json";a.click();toast("Exported \u2713");
 }
 function importData(e){
   const file=e.target.files[0];if(!file)return;
   const r=new FileReader();
-  r.onload=ev=>{try{D={...D,...JSON.parse(ev.target.result)};save();initTheme();initFontSize();renderAll();toast("Imported ✓")}catch(e){toast("Invalid JSON")}};
+  r.onload=function(ev){
+    try{D={...D,...JSON.parse(ev.target.result)};save();initTheme();initFontSize();renderAll();toast("Imported \u2713");}
+    catch(err){toast("Invalid JSON");}
+  };
   r.readAsText(file);e.target.value="";
 }
 function resetData(){
-  showConfirm("Reset All Data?","Every class and expense will be permanently wiped.",()=>{
+  showConfirm("Reset All Data?","Every class and expense will be permanently wiped.",function(){
     D={...D,classes:[],expenses:[],checklist:DEF_CHECKLIST.map(i=>({...i}))};
     activeClsId=null;save();renderAll();switchPage("home");toast("Data reset");
   });
@@ -1480,7 +1515,7 @@ function loadSampleData(){
     {id:"e3",classId:"c1",cat:"👕 Uniform",amt:1600,date:"2021-06-12",mode:"Cash",note:"2 sets uniform"},
     {id:"e4",classId:"c1",cat:"🚌 Transport",amt:9600,date:"2021-07-01",mode:"UPI",note:"Annual bus fee"},
     {id:"e5",classId:"c2",cat:"📚 Tuition Fee",amt:20000,date:"2022-06-03",mode:"Online Transfer",note:"Annual tuition"},
-    {id:"e6",classId:"c2",cat:"📖 Books & Stationery",amt:2600,date:"2022-06-08",mode:"Cash",note:"UKG books & notebooks"},
+    {id:"e6",classId:"c2",cat:"📖 Books & Stationery",amt:2600,date:"2022-06-08",mode:"Cash",note:"UKG books"},
     {id:"e7",classId:"c2",cat:"👕 Uniform",amt:1900,date:"2022-06-11",mode:"Cash",note:"Summer + winter uniform"},
     {id:"e8",classId:"c2",cat:"🚌 Transport",amt:10500,date:"2022-07-01",mode:"UPI",note:"Annual bus fee"},
     {id:"e9",classId:"c2",cat:"🎨 Extracurricular",amt:3600,date:"2022-08-15",mode:"UPI",note:"Drawing class annual"},
@@ -1491,7 +1526,7 @@ function loadSampleData(){
     {id:"e14",classId:"c3",cat:"📝 Exam Fee",amt:600,date:"2023-09-20",mode:"Cash",note:"Half-yearly exam"},
     {id:"e15",classId:"c3",cat:"🏕️ School Trips",amt:1200,date:"2023-11-10",mode:"Cash",note:"Annual picnic trip"},
     {id:"e16",classId:"c4",cat:"📚 Tuition Fee",amt:25000,date:"2024-06-01",mode:"Online Transfer",note:"Annual tuition"},
-    {id:"e17",classId:"c4",cat:"📖 Books & Stationery",amt:3600,date:"2024-06-06",mode:"Cash",note:"Class 2 books & supplies"},
+    {id:"e17",classId:"c4",cat:"📖 Books & Stationery",amt:3600,date:"2024-06-06",mode:"Cash",note:"Class 2 books"},
     {id:"e18",classId:"c4",cat:"👕 Uniform",amt:2500,date:"2024-06-10",mode:"Cash",note:"Uniform + sports kit"},
     {id:"e19",classId:"c4",cat:"🚌 Transport",amt:12000,date:"2024-07-01",mode:"UPI",note:"Annual bus fee"},
     {id:"e20",classId:"c4",cat:"🎨 Extracurricular",amt:5400,date:"2024-08-01",mode:"UPI",note:"Abacus + Drawing class"},
@@ -1503,10 +1538,10 @@ function loadSampleData(){
     {id:"e26",classId:"c5",cat:"🎨 Extracurricular",amt:6000,date:"2025-08-10",mode:"UPI",note:"Keyboard + Abacus"},
   ];
   activeClsId="c5";
-  save();initTheme();renderAll();toast("Sample data loaded ✓");
+  save();initTheme();renderAll();toast("Sample data loaded \u2713");
 }
 
-// ─── CALENDAR PICKER (exact Goal Tracker impl) ───────────────────
+// ─── CALENDAR PICKER ─────────────────────────────────────────────────
 const CAL_SVG = '<svg class="cal-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CAL_DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
@@ -1515,69 +1550,81 @@ const _cal = { month:new Date().getMonth(), year:new Date().getFullYear(), selec
 function calPickerHTML(id, val) {
   const hasVal = val && val.length > 0;
   const display = hasVal ? calFmtDisplay(val) : 'Select date';
-  return '<div class="cal-wrap" id="cal-wrap-'+id+'">' +
-    '<div class="cal-display '+(hasVal?'':'empty')+'" id="cal-disp-'+id+'" onclick="toggleCal(\''+id+'\')">' +
-    display+' '+CAL_SVG+'</div>' +
-    '<div class="cal-popup" id="cal-popup-'+id+'" style="display:none"></div>' +
-    '</div>' +
-    '<input type="hidden" id="cal-val-'+id+'" value="'+(val||'')+'"/>';
+  return '<div class="cal-wrap" id="cal-wrap-'+id+'">'
+    +'<div class="cal-display '+(hasVal?'':'empty')+'" id="cal-disp-'+id+'" onclick="toggleCal(\''+id+'\')">'
+    +display+' '+CAL_SVG+'</div>'
+    +'<div class="cal-popup" id="cal-popup-'+id+'" style="display:none"></div>'
+    +'</div>'
+    +'<input type="hidden" id="cal-val-'+id+'" value="'+(val||'')+'"/>';
 }
-// val stored as YYYY-MM-DD, display as "26 Mar 2026"
 function calFmtDisplay(v) {
   if (!v) return 'Select date';
-  const [y,m,d] = v.split('-');
-  return parseInt(d)+' '+CAL_MONTHS[parseInt(m)-1].slice(0,3)+' '+y;
+  const p=v.split('-');if(p.length!==3)return v;
+  return parseInt(p[2])+' '+CAL_MONTHS[parseInt(p[1])-1].slice(0,3)+' '+p[0];
 }
 function toggleCal(id) {
   const popup = document.getElementById('cal-popup-'+id);
   if (!popup) return;
   const isOpen = popup.style.display !== 'none';
-  document.querySelectorAll('.cal-popup').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.cal-popup').forEach(function(p){p.style.display='none';});
   if (isOpen) return;
   _cal.id = id; _cal.viewMode = 'days';
   const hidden = document.getElementById('cal-val-'+id);
   const val = hidden ? hidden.value : '';
   if (val) {
-    const [y,m,d] = val.split('-');
-    _cal.selected = new Date(+y, +m-1, +d);
-    _cal.month = _cal.selected.getMonth();
-    _cal.year  = _cal.selected.getFullYear();
+    const parts = val.split('-');
+    if(parts.length===3){_cal.selected=new Date(+parts[0],+parts[1]-1,+parts[2]);_cal.month=_cal.selected.getMonth();_cal.year=_cal.selected.getFullYear();}
   } else {
-    _cal.selected = null;
-    _cal.month = new Date().getMonth();
-    _cal.year  = new Date().getFullYear();
+    _cal.selected=null;_cal.month=new Date().getMonth();_cal.year=new Date().getFullYear();
+  }
+  // Position popup using fixed coords from display element
+  const disp = document.getElementById('cal-disp-'+id);
+  if (disp) {
+    const rect = disp.getBoundingClientRect();
+    const popupW = 252;
+    const popupH = 290;
+    // Vertical: always open below the field
+    let top = rect.bottom + 6;
+    // If not enough space below, flip above
+    if (top + popupH > window.innerHeight - 10) top = rect.top - popupH - 6;
+    // Horizontal: align to right edge of field, clamp within viewport
+    let left = rect.right - popupW;
+    if (left < 8) left = 8;
+    if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
   }
   popup.style.display = 'block';
   renderCal();
 }
 function renderCal() {
   const popup = document.getElementById('cal-popup-'+_cal.id);
-  if (!popup || popup.style.display==='none') return;
+  if (!popup) return;
   if (_cal.viewMode==='years') { renderCalYears(); return; }
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today2 = new Date(); today2.setHours(0,0,0,0);
   const firstDay = new Date(_cal.year, _cal.month, 1).getDay();
   const daysInMonth = new Date(_cal.year, _cal.month+1, 0).getDate();
   const daysInPrev  = new Date(_cal.year, _cal.month, 0).getDate();
   let cells = '';
-  for (let i=firstDay-1; i>=0; i--) cells+=`<div class="cal-day other-month">${daysInPrev-i}</div>`;
+  for (let i=firstDay-1; i>=0; i--) cells+='<div class="cal-day other-month">'+(daysInPrev-i)+'</div>';
   for (let d=1; d<=daysInMonth; d++) {
     const dt = new Date(_cal.year, _cal.month, d);
-    const isToday = dt.getTime()===today.getTime();
+    const isToday = dt.getTime()===today2.getTime();
     const isSel   = _cal.selected && dt.getTime()===_cal.selected.getTime();
-    cells+=`<div class="cal-day${isToday?' today':''}${isSel?' sel':''}" onclick="calPickDay(${d})">${d}</div>`;
+    cells+='<div class="cal-day'+(isToday?' today':'')+(isSel?' sel':'')+'" onclick="event.stopPropagation();calPickDay('+d+')">'+d+'</div>';
   }
-  const total = firstDay+daysInMonth;
-  const trail = total%7===0?0:7-(total%7);
-  for (let d=1; d<=trail; d++) cells+=`<div class="cal-day other-month">${d}</div>`;
-  const dows = CAL_DAYS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
-  popup.innerHTML=`
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calShiftMonth(-1)">‹</button>
-      <div class="cal-month-label" onclick="calToggleYears()">${CAL_MONTHS[_cal.month]} ${_cal.year} ▾</div>
-      <button class="cal-nav-btn" onclick="calShiftMonth(1)">›</button>
-    </div>
-    <div class="cal-grid">${dows}${cells}</div>
-    <div class="cal-clear" onclick="calClear()">Clear date</div>`;
+  const total2 = firstDay+daysInMonth;
+  const trail = total2%7===0?0:7-(total2%7);
+  for (let d=1; d<=trail; d++) cells+='<div class="cal-day other-month">'+d+'</div>';
+  const dows = CAL_DAYS.map(function(d){return '<div class="cal-dow">'+d+'</div>';}).join('');
+  popup.innerHTML=
+    '<div class="cal-nav" onclick="event.stopPropagation()">'
+    +'<button class="cal-nav-btn" onclick="event.stopPropagation();calShiftMonth(-1)">\u2039</button>'
+    +'<div class="cal-month-label" onclick="event.stopPropagation();calToggleYears()">'+CAL_MONTHS[_cal.month]+' '+_cal.year+' \u25be</div>'
+    +'<button class="cal-nav-btn" onclick="event.stopPropagation();calShiftMonth(1)">\u203a</button>'
+    +'</div>'
+    +'<div class="cal-grid" onclick="event.stopPropagation()">'+dows+cells+'</div>'
+    +'<div class="cal-clear" onclick="event.stopPropagation();calClear()">Clear date</div>';
 }
 function renderCalYears() {
   const popup = document.getElementById('cal-popup-'+_cal.id);
@@ -1585,8 +1632,8 @@ function renderCalYears() {
   const curY = new Date().getFullYear();
   let html='';
   for (let y=curY+5; y>=curY-10; y--)
-    html+=`<div class="cal-year-item${y===_cal.year?' sel':''}" onclick="calPickYear(${y})">${y}</div>`;
-  popup.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calToggleYears()">✕</button><div class="cal-month-label">Select Year</div><div style="width:30px"></div></div><div class="cal-year-grid">${html}</div>`;
+    html+='<div class="cal-year-item'+(y===_cal.year?' sel':'')+'" onclick="event.stopPropagation();calPickYear('+y+')">'+y+'</div>';
+  popup.innerHTML='<div class="cal-nav" onclick="event.stopPropagation()"><button class="cal-nav-btn" onclick="event.stopPropagation();calToggleYears()">\u2715</button><div class="cal-month-label">Select Year</div><div style="width:30px"></div></div><div class="cal-year-grid" onclick="event.stopPropagation()">'+html+'</div>';
 }
 function calToggleYears(){ _cal.viewMode=_cal.viewMode==='years'?'days':'years'; renderCal(); }
 function calShiftMonth(dir){
@@ -1598,377 +1645,343 @@ function calShiftMonth(dir){
 function calPickYear(y){ _cal.year=y; _cal.viewMode='days'; renderCal(); }
 function calPickDay(d) {
   _cal.selected = new Date(_cal.year, _cal.month, d);
-  const yyyy = _cal.year;
-  const mm   = String(_cal.month+1).padStart(2,'0');
-  const dd   = String(d).padStart(2,'0');
-  const iso  = `${yyyy}-${mm}-${dd}`;
-  const hidden = document.getElementById('cal-val-'+_cal.id);
-  if (hidden) hidden.value = iso;
-  const disp = document.getElementById('cal-disp-'+_cal.id);
-  if (disp) { disp.classList.remove('empty'); disp.innerHTML = calFmtDisplay(iso)+' '+CAL_SVG; }
-  const popup = document.getElementById('cal-popup-'+_cal.id);
-  if (popup) popup.style.display='none';
+  const yyyy=_cal.year;
+  const mm=String(_cal.month+1).padStart(2,'0');
+  const dd=String(d).padStart(2,'0');
+  const iso=yyyy+'-'+mm+'-'+dd;
+  const hidden=document.getElementById('cal-val-'+_cal.id);
+  if(hidden)hidden.value=iso;
+  const disp=document.getElementById('cal-disp-'+_cal.id);
+  if(disp){disp.classList.remove('empty');disp.innerHTML=calFmtDisplay(iso)+' '+CAL_SVG;}
+  const popup=document.getElementById('cal-popup-'+_cal.id);
+  if(popup)popup.style.display='none';
 }
 function calClear() {
-  _cal.selected = null;
-  const hidden = document.getElementById('cal-val-'+_cal.id);
-  if (hidden) hidden.value='';
-  const disp = document.getElementById('cal-disp-'+_cal.id);
-  if (disp) { disp.classList.add('empty'); disp.innerHTML='Select date '+CAL_SVG; }
-  const popup = document.getElementById('cal-popup-'+_cal.id);
-  if (popup) popup.style.display='none';
+  _cal.selected=null;
+  const hidden=document.getElementById('cal-val-'+_cal.id);if(hidden)hidden.value='';
+  const disp=document.getElementById('cal-disp-'+_cal.id);
+  if(disp){disp.classList.add('empty');disp.innerHTML='Select date '+CAL_SVG;}
+  const popup=document.getElementById('cal-popup-'+_cal.id);
+  if(popup)popup.style.display='none';
 }
-// Close cal on outside click
-document.addEventListener('click', e=>{
-  if (!e.target.closest('.cal-wrap'))
-    document.querySelectorAll('.cal-popup').forEach(p=>p.style.display='none');
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.cal-wrap') && !e.target.closest('.cal-popup'))
+    document.querySelectorAll('.cal-popup').forEach(function(p){p.style.display='none';});
 });
-const fmt=n=>"₹"+Number(n).toLocaleString("en-IN");
-const today=()=>new Date().toISOString().slice(0,10);
+
+// ─── HELPERS ────────────────────────────────────────────────────────
+const fmt = function(n){return '\u20b9'+Number(n).toLocaleString('en-IN');};
+const today = function(){return new Date().toISOString().slice(0,10);};
 function fmtDate(d){
-  if(!d)return"";const[y,m,dy]=d.split("-");
-  return`${parseInt(dy)} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${y}`;
+  if(!d)return'';
+  const p=d.split('-');if(p.length!==3)return d;
+  return parseInt(p[2])+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]-1]+' '+p[0];
 }
-function catColor(k){return(CATS.find(c=>c.key===k)||{color:"#3B82F6"}).color;}
-function catEmoji(k){return k.split(" ")[0];}
-function catLabel(k){return k.replace(/^\S+\s/,"");}
-function modeCls(m){if(m==="Cash")return"mode-cash";if(m==="Cheque")return"mode-cheque";return"mode-upi";}
+function catColor(k){return(CATS.find(function(c){return c.key===k;})||{color:'#3B82F6'}).color;}
+function catEmoji(k){return k.split(' ')[0];}
+function catLabel(k){return k.replace(/^\S+\s/,'');}
+function modeCls(m){if(m==='Cash')return'mode-cash';if(m==='Cheque')return'mode-cheque';return'mode-upi';}
 function fmtCr(n){
-  if(n>=10000000)return"₹"+(n/10000000).toFixed(2)+"Cr";
-  if(n>=100000)return"₹"+(n/100000).toFixed(2)+"L";
-  if(n>=1000)return"₹"+(n/1000).toFixed(1)+"K";
-  return"₹"+n.toLocaleString("en-IN");
+  if(n>=10000000)return '\u20b9'+(n/10000000).toFixed(2)+'Cr';
+  if(n>=100000)return '\u20b9'+(n/100000).toFixed(2)+'L';
+  if(n>=1000)return '\u20b9'+(n/1000).toFixed(1)+'K';
+  return '\u20b9'+n.toLocaleString('en-IN');
 }
 function toggleSec(id){
-  const body=document.getElementById(id);const caret=document.getElementById("caret-"+id);
+  const body=document.getElementById(id);
+  const caret=document.getElementById('caret-'+id);
   if(!body)return;
-  const closed=body.classList.contains("closed");
-  body.classList.toggle("closed",!closed);
-  if(caret)caret.classList.toggle("open",closed);
+  const closed=body.classList.contains('closed');
+  body.classList.toggle('closed',!closed);
+  if(caret)caret.classList.toggle('open',closed);
+}
+
+// ─── ENTRY ROW ───────────────────────────────────────────────────────
+function entryRowHtml(e, clsLabel){
+  return '<div class="entry-row">'
+    +'<div class="entry-dot" style="background:'+catColor(e.cat)+'"></div>'
+    +'<div class="entry-body">'
+    +'<div class="entry-title">'+catEmoji(e.cat)+' '+(e.note||catLabel(e.cat))+'</div>'
+    +'<div class="entry-meta">'+fmtDate(e.date)+(clsLabel?' \u00b7 '+clsLabel:'')+' \u00b7 '+catLabel(e.cat)+'</div>'
+    +'</div>'
+    +'<div class="entry-right">'
+    +'<div class="entry-amt">'+fmt(e.amt)+'</div>'
+    +'<span class="entry-mode '+modeCls(e.mode)+'">'+e.mode+'</span>'
+    +'</div>'
+    +'<div class="entry-actions">'
+    +'<button class="btn-circle" onclick="event.stopPropagation();openEditExpense(\''+e.id+'\')" title="Edit">\u270f\ufe0f</button>'
+    +'<button class="btn-del" onclick="event.stopPropagation();askDeleteExp(\''+e.id+'\')" title="Delete">\u2715</button>'
+    +'</div>'
+    +'</div>';
 }
 
 // ─── RENDER HOME ────────────────────────────────────────────────────
 function renderHome(){
-  const el=document.getElementById("home-content");
+  const el=document.getElementById('home-content');
   if(D.classes.length===0){
-    el.innerHTML=`<div style="text-align:center;padding:48px 20px">
-      <div style="font-size:3rem;margin-bottom:16px">🎒</div>
-      <div style="font-size:1.05rem;font-weight:800;color:var(--text1);margin-bottom:8px">Welcome to School Ledger</div>
-      <div style="font-size:0.82rem;color:var(--text3);line-height:1.6;margin-bottom:24px">Track every rupee spent on your child's education — class by class, year by year.</div>
-      <button class="btn btn-primary" onclick="openSheet('addClass')">Add First Class</button>
-    </div>`;return;
+    el.innerHTML='<div style="text-align:center;padding:48px 20px">'
+      +'<div style="font-size:3rem;margin-bottom:16px">\ud83c\udf92</div>'
+      +'<div style="font-size:1.05rem;font-weight:800;color:var(--text1);margin-bottom:8px">Welcome to School Ledger</div>'
+      +'<div style="font-size:0.82rem;color:var(--text3);line-height:1.6;margin-bottom:24px">Track every rupee spent on your child\u2019s education \u2014 class by class, year by year.</div>'
+      +'<button class="btn btn-primary" onclick="openSheet(\'addClass\')">Add First Class</button>'
+      +'</div>';
+    return;
   }
+
   const all=D.expenses;
-  const total=all.reduce((s,e)=>s+e.amt,0);
-  const thisYr=new Date().getFullYear().toString();
-  const thisYrExps=all.filter(e=>e.date&&e.date.startsWith(thisYr));
-  const thisYrTotal=thisYrExps.reduce((s,e)=>s+e.amt,0);
-  const catMap={};all.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
-  const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
-  const avgPerClass=D.classes.length>0?Math.round(total/D.classes.length):0;
+  const grand=all.reduce(function(s,e){return s+e.amt;},0);
+  const classTotals=D.classes.map(function(c){
+    return{c:c,t:D.expenses.filter(function(e){return e.classId===c.id;}).reduce(function(s,e){return s+e.amt;},0)};
+  });
+  const highCls=classTotals.reduce(function(a,b){return b.t>a.t?b:a;});
+  const withExp=classTotals.filter(function(x){return x.t>0;});
+  const lowCls=withExp.length>1?withExp.reduce(function(a,b){return b.t<a.t?b:a;}):null;
+  if(!activeClsId||!D.classes.find(function(c){return c.id===activeClsId;}))activeClsId=D.classes[D.classes.length-1].id;
+  const acls=D.classes.find(function(c){return c.id===activeClsId;});
 
-  let html=`
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
-    <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border2)">
-      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">Total Education Spend</div>
-      <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1;color:${total>0?'var(--green)':'var(--text3)'}">${total>0?fmtCr(total):'₹0'}</div>
-      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">Across all ${D.classes.length} ${D.classes.length===1?'class':'classes'} · ${all.length} ${all.length===1?'entry':'entries'}</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr">
-      <div style="padding:13px 18px;border-right:1px solid var(--border2);border-bottom:1px solid var(--border2)">
-        <div class="lbl" style="margin-bottom:5px">This Year</div>
-        <div style="font-size:1.05rem;font-weight:800;color:${thisYrTotal>0?'var(--green)':'var(--text3)'};letter-spacing:-0.3px">${thisYrTotal>0?fmtCr(thisYrTotal):'—'}</div>
-      </div>
-      <div style="padding:13px 18px;border-bottom:1px solid var(--border2)">
-        <div class="lbl" style="margin-bottom:5px">Avg/Class</div>
-        <div style="font-size:1.05rem;font-weight:800;color:${avgPerClass>0?'var(--text1)':'var(--text3)'};letter-spacing:-0.3px">${avgPerClass>0?fmtCr(avgPerClass):'—'}</div>
-      </div>
-      <div style="padding:13px 18px;border-right:1px solid var(--border2)">
-        <div class="lbl" style="margin-bottom:5px">Top Category</div>
-        <div style="font-size:0.88rem;font-weight:800;color:${topCat?'var(--text1)':'var(--text3)'}">${topCat?catEmoji(topCat[0])+" "+catLabel(topCat[0]):'—'}</div>
-      </div>
-      <div style="padding:13px 18px">
-        <div class="lbl" style="margin-bottom:5px">Classes</div>
-        <div style="font-size:1.05rem;font-weight:800;color:var(--text1)">${D.classes.length}</div>
-      </div>
-    </div>
-  </div>`;
+  // ── Hero card ──
+  let html='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">'
+    +'<div style="padding:18px 18px 14px;border-bottom:1px solid var(--border2)">'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">Total Education Spend</div>'
+    +'<div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1;color:'+(grand>0?'var(--green)':'var(--text3)')+'">'+fmtCr(grand)+'</div>'
+    +'<div style="font-size:0.72rem;color:var(--text3);margin-top:5px">'+all.length+' '+(all.length===1?'entry':'entries')+' recorded</div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr">'
+    +'<div style="padding:13px 18px;border-right:1px solid var(--border2);border-bottom:1px solid var(--border2)">'
+    +'<div class="lbl" style="margin-bottom:5px">Total Classes</div>'
+    +'<div style="font-size:1.4rem;font-weight:800;color:var(--text1)">'+D.classes.length+'</div>'
+    +'</div>'
+    +'<div style="padding:13px 18px;border-bottom:1px solid var(--border2)">'
+    +'<div class="lbl" style="margin-bottom:5px">Current Class</div>'
+    +'<div style="font-size:0.92rem;font-weight:800;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+acls.name+'</div>'
+    +'<div style="font-size:0.68rem;color:var(--text3);margin-top:2px">'+(acls.year||'')+'</div>'
+    +'</div>'
+    +'<div style="padding:13px 18px;border-right:1px solid var(--border2)">'
+    +'<div class="lbl" style="margin-bottom:5px">Highest Fees</div>'
+    +'<div style="font-size:0.88rem;font-weight:700;color:var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(highCls&&highCls.t>0?highCls.c.name:'\u2014')+'</div>'
+    +'<div style="font-size:0.7rem;color:var(--text3);font-weight:600;margin-top:2px">'+(highCls&&highCls.t>0?fmtCr(highCls.t):'')+'</div>'
+    +'</div>'
+    +'<div style="padding:13px 18px">'
+    +'<div class="lbl" style="margin-bottom:5px">Lowest Fees</div>'
+    +'<div style="font-size:0.88rem;font-weight:700;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(lowCls?lowCls.c.name:highCls&&highCls.t>0?highCls.c.name:'\u2014')+'</div>'
+    +'<div style="font-size:0.7rem;color:var(--text3);font-weight:600;margin-top:2px">'+(lowCls?fmtCr(lowCls.t):highCls&&highCls.t>0?fmtCr(highCls.t):'')+'</div>'
+    +'</div>'
+    +'</div></div>';
 
-  // Category Breakdown — only show if there are expenses
+  // ── Per-class spending list ──
+  html+='<div style="margin-bottom:8px">'
+    +'<div class="sec-hdr-card" onclick="toggleSec(\'sec-home-classes\')">'
+    +'<div class="sec-hdr-left"><span class="sec-hdr-title">'
+    +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>'
+    +' Spend by Class</span><span class="sec-badge">'+D.classes.length+' classes</span></div>'
+    +'<div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-classes"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>'
+    +'</div>'
+    +'<div class="sec-body" id="sec-home-classes">'
+    +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">';
+
+  classTotals.forEach(function(item,i){
+    const cls=item.c; const t=item.t;
+    const pct=grand>0?Math.round(t/grand*100):0;
+    const isCurrent=cls.id===activeClsId;
+    const isLast=i===classTotals.length-1;
+    html+='<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;'+(isLast?'':'border-bottom:1px solid var(--border2);')+'cursor:pointer;transition:background 120ms" onclick="selectClass(\''+cls.id+'\');switchPage(\'classes\')" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">'
+      // Year badge
+      +'<span style="font-size:0.62rem;font-weight:700;color:#3B82F6;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);padding:2px 7px;border-radius:99px;flex-shrink:0;white-space:nowrap">'+(cls.year||'—')+'</span>'
+      // Class info + bar
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">'
+      +'<span style="font-size:0.86rem;font-weight:'+(isCurrent?'800':'600')+';color:'+(isCurrent?'var(--green)':'var(--text1)')+'">'+cls.name+'</span>'
+      +'<span style="font-size:0.86rem;font-weight:700;color:var(--text1);flex-shrink:0;margin-left:8px">'+(t>0?fmtCr(t):'\u2014')+'</span>'
+      +'</div>'
+      +'<div style="height:4px;background:var(--surface3);border-radius:99px;overflow:hidden">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+(isCurrent?'var(--green)':'#3B82F6')+';border-radius:99px;transition:width 0.5s cubic-bezier(0.16,1,0.3,1)"></div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px">'
+      +'<span style="font-size:0.68rem;color:var(--text3)">'+(cls.school||'')+'</span>'
+      +'<span style="font-size:0.68rem;color:'+(isCurrent?'var(--green)':'#3B82F6')+';font-weight:600">'+pct+'%</span>'
+      +'</div>'
+      +'</div>'
+      // Current badge
+      +(isCurrent?'<span style="font-size:0.6rem;font-weight:700;color:var(--green);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);padding:2px 7px;border-radius:99px;flex-shrink:0">Active</span>':'<span style="color:var(--text3);font-size:0.75rem;flex-shrink:0">\u203a</span>')
+      +'</div>';
+  });
+
+  html+='</div></div></div>';
+
+  // ── Overall category breakdown ──
   if(all.length>0){
-    html+=`<div style="margin-bottom:8px">
-      <div class="sec-hdr-card" onclick="toggleSec('sec-home-cats')">
-        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Category Breakdown</span><span class="sec-badge">${Object.keys(catMap).length} categories</span></div>
-        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-      </div>
-      <div class="sec-body" id="sec-home-cats">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
-          <div style="padding:4px 14px 8px">
-            ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
-              const pct=total>0?Math.round(catMap[c.key]/total*100):0;
-              return`<div class="cat-breakdown-row">
-                <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
-                <div class="cat-info">
-                  <div class="cat-name-txt">${catLabel(c.key)}</div>
-                  <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div>
-                </div>
-                <div class="cat-val">${fmt(catMap[c.key])}</div>
-                <div class="cat-pct">${pct}%</div>
-              </div>`;
-            }).join("")}
-          </div>
-        </div>
-      </div>
-    </div>`;
+    const catMap={};
+    all.forEach(function(e){catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+    let catRows='';
+    CATS.filter(function(c){return catMap[c.key]>0;}).sort(function(a,b){return catMap[b.key]-catMap[a.key];}).forEach(function(c){
+      const pct=grand>0?Math.round(catMap[c.key]/grand*100):0;
+      catRows+='<div class="cat-breakdown-row">'
+        +'<div class="cat-icon-wrap">'+catEmoji(c.key)+'</div>'
+        +'<div class="cat-info"><div class="cat-name-txt">'+catLabel(c.key)+'</div>'
+        +'<div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+c.color+'"></div></div></div>'
+        +'<div class="cat-val">'+fmt(catMap[c.key])+'</div>'
+        +'<div class="cat-pct">'+pct+'%</div></div>';
+    });
+    html+='<div style="margin-bottom:8px">'
+      +'<div class="sec-hdr-card" onclick="toggleSec(\'sec-home-cats\')">'
+      +'<div class="sec-hdr-left"><span class="sec-hdr-title">'
+      +'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
+      +' Overall Breakdown</span><span class="sec-badge">'+Object.keys(catMap).length+' categories</span></div>'
+      +'<div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>'
+      +'</div>'
+      +'<div class="sec-body" id="sec-home-cats">'
+      +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">'
+      +'<div style="padding:4px 14px 8px">'+catRows+'</div>'
+      +'</div></div></div>';
   }
 
-  // Recent entries — always show, but with nudge when empty
-  const recent=all.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
-  if(all.length===0){
-    // No expenses yet — show a single clean nudge card, no collapsible
-    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
-      <div style="text-align:center;padding:28px 20px">
-        <div style="font-size:1.6rem;margin-bottom:10px;opacity:0.4">💸</div>
-        <div style="font-size:0.86rem;font-weight:700;color:var(--text1);margin-bottom:5px">No expenses yet</div>
-        <div style="font-size:0.76rem;color:var(--text3);line-height:1.5;margin-bottom:16px">Go to Classes tab and tap the + button<br>to record your first expense</div>
-        <button class="btn btn-primary btn-sm" onclick="switchPage('classes')">Go to Classes</button>
-      </div>
-    </div>`;
-  } else {
-    html+=`<div style="margin-bottom:8px">
-      <div class="sec-hdr-card" onclick="toggleSec('sec-home-recent')">
-        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> Recent Expenses</span><span class="sec-badge">${all.length} total</span></div>
-        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-recent"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-      </div>
-      <div class="sec-body" id="sec-home-recent">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
-    recent.forEach(e=>{
-      const cls=D.classes.find(c=>c.id===e.classId);
-      html+=entryRowHtml(e,cls?cls.name:"");
-    });
-    if(all.length>6)html+=`<div style="padding:11px 14px;text-align:center"><button onclick="switchPage('overview')" style="background:none;border:none;color:#3B82F6;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">View all ${all.length} entries →</button></div>`;
-    html+=`</div></div></div>`;
-  }
   el.innerHTML=html;
 }
 
-// ─── RENDER CLASSES ──────────────────────────────────────────────────
 function renderClasses(){
-  const strip=document.getElementById("class-strip");
-  const content=document.getElementById("classes-content");
+  const stepper=document.getElementById('class-stepper');
+  const content=document.getElementById('classes-content');
   if(D.classes.length===0){
-    strip.innerHTML="";
-    content.innerHTML=`<div style="text-align:center;padding:48px 20px">
-      <div style="font-size:2.5rem;margin-bottom:14px">🏫</div>
-      <div style="font-size:0.9rem;font-weight:700;color:var(--text1);margin-bottom:6px">No Classes Yet</div>
-      <div style="font-size:0.8rem;color:var(--text3);margin-bottom:20px">Add your first class to start tracking expenses</div>
-      <button class="btn btn-primary btn-sm" onclick="openSheet('addClass')">Add First Class</button>
-    </div>`;return;
+    stepper.innerHTML='';
+    content.innerHTML='<div style="text-align:center;padding:48px 20px">'
+      +'<div style="font-size:2.5rem;margin-bottom:14px">\ud83c\udfe3</div>'
+      +'<div style="font-size:0.9rem;font-weight:700;color:var(--text1);margin-bottom:6px">No Classes Yet</div>'
+      +'<div style="font-size:0.8rem;color:var(--text3);margin-bottom:20px">Add your first class to start tracking expenses</div>'
+      +'<button class="btn btn-primary btn-sm" onclick="openSheet(\'addClass\')">Add First Class</button>'
+      +'</div>';
+    return;
   }
-  if(!activeClsId||!D.classes.find(c=>c.id===activeClsId))activeClsId=D.classes[0].id;
-  // Strip
-  strip.innerHTML=D.classes.map(c=>`<button class="cls-tab ${c.id===activeClsId?"active":""}" onclick="selectClass('${c.id}')">${c.name}</button>`).join("")+
-    `<button class="cls-tab-add" onclick="openSheet('addClass')">Add Class</button>`;
-  // Content
-  const cls=D.classes.find(c=>c.id===activeClsId);
-  const exps=D.expenses.filter(e=>e.classId===activeClsId);
-  const total=exps.reduce((s,e)=>s+e.amt,0);
-  const catMap={};exps.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
-  const sorted=exps.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!activeClsId||!D.classes.find(function(c){return c.id===activeClsId;}))activeClsId=D.classes[0].id;
+  const stepIdx=D.classes.findIndex(function(c){return c.id===activeClsId;});
+  const activeCls=D.classes[stepIdx];
+  const stepTotal=D.expenses.filter(function(e){return e.classId===activeClsId;}).reduce(function(s,e){return s+e.amt;},0);
+  const hasPrev=stepIdx>0;
+  const hasNext=stepIdx<D.classes.length-1;
 
-  let html=`
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
-    <div style="padding:16px 18px 13px;border-bottom:1px solid var(--border2)">
-      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">${cls.name} · Total Spend</div>
-      <div style="font-size:2rem;font-weight:800;letter-spacing:-0.8px;line-height:1;color:var(--green)">${fmtCr(total)}</div>
-      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">${exps.length} entries${cls.year?" · "+cls.year:""}</div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr">
-      <div style="padding:13px 18px;border-right:1px solid var(--border2)">
-        <div class="lbl" style="margin-bottom:4px">Categories</div>
-        <div style="font-size:1rem;font-weight:800;color:var(--text1)">${Object.keys(catMap).length}</div>
-      </div>
-      <div style="padding:13px 18px">
-        <div class="lbl" style="margin-bottom:4px">School</div>
-        <div style="font-size:0.8rem;font-weight:700;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.school||"—"}</div>
-      </div>
-    </div>
-  </div>`;
+  stepper.innerHTML=
+    '<button class="cls-step-btn" onclick="stepClass(-1)" '+(hasPrev?'':'disabled')+'>'
+    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>'
+    +'</button>'
+    +'<div class="cls-step-center" onclick="openClsActions()">'
+    +'<div class="cls-step-name">'+activeCls.name+(activeCls.year?' \u00b7 '+activeCls.year:'')+'</div>'
+    +'<div class="cls-step-meta">'+(activeCls.school?activeCls.school+' \u00b7 ':'')+fmtCr(stepTotal)+'</div>'
+    +'<div class="cls-step-counter">'+(stepIdx+1)+' of '+D.classes.length+'</div>'
+    +'</div>'
+    +'<button class="cls-step-btn" onclick="stepClass(1)" '+(hasNext?'':'disabled')+'>'
+    +'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
+    +'</button>';
+
+  const cls=D.classes.find(function(c){return c.id===activeClsId;});
+  const exps=D.expenses.filter(function(e){return e.classId===activeClsId;});
+  const total=exps.reduce(function(s,e){return s+e.amt;},0);
+  const catMap={};
+  exps.forEach(function(e){catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const sorted=exps.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+
+  let html='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">'
+    +'<div style="padding:16px 18px 13px;border-bottom:1px solid var(--border2)">'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">'+cls.name+' \u00b7 Total Spend</div>'
+    +'<div style="font-size:2rem;font-weight:800;letter-spacing:-0.8px;line-height:1;color:'+(total>0?'var(--green)':'var(--text3)')+'">'+fmtCr(total)+'</div>'
+    +'<div style="font-size:0.72rem;color:var(--text3);margin-top:5px">'+exps.length+' entries'+(cls.year?' \u00b7 '+cls.year:'')+'</div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr">'
+    +'<div style="padding:13px 18px;border-right:1px solid var(--border2)"><div class="lbl" style="margin-bottom:4px">Categories</div>'
+    +'<div style="font-size:1rem;font-weight:800;color:var(--text1)">'+Object.keys(catMap).length+'</div></div>'
+    +'<div style="padding:13px 18px"><div class="lbl" style="margin-bottom:4px">School</div>'
+    +'<div style="font-size:0.8rem;font-weight:700;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(cls.school||'\u2014')+'</div></div>'
+    +'</div></div>';
 
   if(exps.length>0){
-    html+=`<div style="margin-bottom:8px">
-      <div class="sec-hdr-card" onclick="toggleSec('sec-cls-cats')">
-        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> By Category</span></div>
-        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-      </div>
-      <div class="sec-body" id="sec-cls-cats">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
-          <div style="padding:4px 14px 8px">
-            ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
-              const pct=total>0?Math.round(catMap[c.key]/total*100):0;
-              return`<div class="cat-breakdown-row">
-                <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
-                <div class="cat-info"><div class="cat-name-txt">${catLabel(c.key)}</div>
-                <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>
-                <div class="cat-val">${fmt(catMap[c.key])}</div>
-                <div class="cat-pct">${pct}%</div>
-              </div>`;}).join("")}
-          </div>
-        </div>
-      </div>
-    </div>`;
+    let catRows='';
+    CATS.filter(function(c){return catMap[c.key]>0;}).forEach(function(c){
+      const pct=total>0?Math.round(catMap[c.key]/total*100):0;
+      catRows+='<div class="cat-breakdown-row">'
+        +'<div class="cat-icon-wrap">'+catEmoji(c.key)+'</div>'
+        +'<div class="cat-info"><div class="cat-name-txt">'+catLabel(c.key)+'</div>'
+        +'<div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+c.color+'"></div></div></div>'
+        +'<div class="cat-val">'+fmt(catMap[c.key])+'</div>'
+        +'<div class="cat-pct">'+pct+'%</div></div>';
+    });
+    html+='<div style="margin-bottom:8px">'
+      +'<div class="sec-hdr-card" onclick="toggleSec(\'sec-cls-cats\')">'
+      +'<div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> By Category</span></div>'
+      +'<div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div></div>'
+      +'<div class="sec-body" id="sec-cls-cats">'
+      +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">'
+      +'<div style="padding:4px 14px 8px">'+catRows+'</div></div></div></div>';
   }
 
   if(sorted.length===0){
-    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
-      <div style="text-align:center;padding:28px 20px">
-        <div style="font-size:1.6rem;margin-bottom:10px;opacity:0.4">💸</div>
-        <div style="font-size:0.86rem;font-weight:700;color:var(--text1);margin-bottom:5px">No expenses for ${cls.name}</div>
-        <div style="font-size:0.76rem;color:var(--text3);line-height:1.5;margin-bottom:16px">Tap the + button above to record<br>your first expense for this class</div>
-        <button class="btn btn-primary btn-sm" onclick="openAddExpense()">Add Expense</button>
-      </div>
-    </div>`;
+    html+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">'
+      +'<div style="text-align:center;padding:28px 20px">'
+      +'<div style="font-size:1.6rem;margin-bottom:10px;opacity:0.4">\ud83d\udcb8</div>'
+      +'<div style="font-size:0.86rem;font-weight:700;color:var(--text1);margin-bottom:5px">No expenses for '+cls.name+'</div>'
+      +'<div style="font-size:0.76rem;color:var(--text3);line-height:1.5;margin-bottom:16px">Tap the + button above to record your first expense for this class</div>'
+      +'<button class="btn btn-primary btn-sm" onclick="openAddExpense()">Add Expense</button>'
+      +'</div></div>';
   } else {
-    html+=`<div style="margin-bottom:8px">
-      <div class="sec-hdr-card" onclick="toggleSec('sec-cls-entries')">
-        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> All Entries</span><span class="sec-badge">${sorted.length}</span></div>
-        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-entries"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-      </div>
-      <div class="sec-body" id="sec-cls-entries">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
-    sorted.forEach(e=>{html+=entryRowHtml(e,"");});
-    html+=`</div></div></div>`;
+    html+='<div style="margin-bottom:8px">'
+      +'<div class="sec-hdr-card" onclick="toggleSec(\'sec-cls-entries\')">'
+      +'<div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> All Entries</span><span class="sec-badge">'+sorted.length+'</span></div>'
+      +'<div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-entries"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div></div>'
+      +'<div class="sec-body" id="sec-cls-entries">'
+      +'<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">';
+    sorted.forEach(function(e){html+=entryRowHtml(e,'');});
+    html+='</div></div></div>';
   }
   content.innerHTML=html;
 }
 
-function selectClass(id){activeClsId=id;renderClasses();}
+function stepClass(dir){
+  const idx=D.classes.findIndex(function(c){return c.id===activeClsId;});
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=D.classes.length)return;
+  activeClsId=D.classes[newIdx].id;
+  renderClasses();
+}
+function openClsActions(){
+  const cls=D.classes.find(function(c){return c.id===activeClsId;});
+  if(!cls)return;
+  showConfirm(
+    cls.name+(cls.year?' · '+cls.year:''),
+    'Edit this class details or delete it and all its expenses.',
+    function(){}
+  );
+  // Override confirm button to be Edit, add a Delete option
+  document.getElementById('confirm-ok').textContent='Edit Class';
+  document.getElementById('confirm-ok').style.color='#3B82F6';
+  document.getElementById('confirm-ok').onclick=function(){closeConfirm();openEditClass(activeClsId);};
+  document.getElementById('confirm-cancel').textContent='Delete Class';
+  document.getElementById('confirm-cancel').style.color='var(--red)';
+  document.getElementById('confirm-cancel').onclick=function(){closeConfirm();askDeleteClass(activeClsId);};
+  // Add a real cancel somewhere - repurpose title area
+  const title=document.getElementById('confirm-title');
+  if(title)title.style.cursor='default';
+}
+function selectClass(id){
+  activeClsId=id;
+  renderClasses();
+}
 
 // ─── RENDER OVERVIEW ────────────────────────────────────────────────
-function renderOverview(){
-  const el=document.getElementById("overview-content");
-  if(D.classes.length===0){
-    el.innerHTML=`<div class="empty" style="padding:56px 20px"><div class="empty-icon">📊</div><div class="empty-text">No data yet. Add classes and expenses to see the overview.</div></div>`;return;
-  }
-  const all=D.expenses;const grand=all.reduce((s,e)=>s+e.amt,0);
-  const catMap={};all.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
-
-  let html=`
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
-    <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border2)">
-      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">Grand Total · All Classes</div>
-      <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--green)">${fmtCr(grand)}</div>
-      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">${all.length} entries · ${D.classes.length} classes</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr)">
-      ${D.classes.slice(0,3).map((c,i)=>{
-        const t=D.expenses.filter(e=>e.classId===c.id).reduce((s,e)=>s+e.amt,0);
-        return`<div style="padding:11px 14px${i<2?";border-right:1px solid var(--border2)":""}">
-          <div class="lbl" style="margin-bottom:3px">${c.name}</div>
-          <div style="font-size:0.88rem;font-weight:800;color:var(--text1)">${fmtCr(t)}</div>
-        </div>`;
-      }).join("")}
-    </div>
-  </div>`;
-
-  html+=`<div style="margin-bottom:8px">
-    <div class="sec-hdr-card" onclick="toggleSec('sec-ov-cats')">
-      <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Overall by Category</span><span class="sec-badge">${Object.keys(catMap).length} types</span></div>
-      <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-ov-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-    </div>
-    <div class="sec-body" id="sec-ov-cats">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
-        <div style="padding:4px 14px 8px">
-          ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
-            const pct=grand>0?Math.round(catMap[c.key]/grand*100):0;
-            return`<div class="cat-breakdown-row">
-              <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
-              <div class="cat-info"><div class="cat-name-txt">${catLabel(c.key)}</div>
-              <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>
-              <div class="cat-val">${fmt(catMap[c.key])}</div>
-              <div class="cat-pct">${pct}%</div>
-            </div>`;}).join("")}
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  html+=`<div style="margin-bottom:8px">
-    <div class="sec-hdr-card" onclick="toggleSec('sec-ov-classes')">
-      <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> By Class</span><span class="sec-badge">${D.classes.length} classes</span></div>
-      <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-ov-classes"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
-    </div>
-    <div class="sec-body" id="sec-ov-classes">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
-  D.classes.forEach((cls,ci)=>{
-    const exps=all.filter(e=>e.classId===cls.id);
-    const ctotal=exps.reduce((s,e)=>s+e.amt,0);
-    const cm={};exps.forEach(e=>{cm[e.cat]=(cm[e.cat]||0)+e.amt;});
-    const topExps=exps.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,4);
-    const bid="ov_"+cls.id;
-    html+=`<div class="ov-class-hdr" onclick="toggleOvClass('${bid}')">
-      <span class="ov-class-badge">${cls.year||"—"}</span>
-      <span class="ov-class-name">${cls.name}${cls.school?" · "+cls.school:""}</span>
-      <span class="ov-class-total">${fmt(ctotal)}</span>
-      <span class="ov-class-caret" id="chev_${bid}">›</span>
-    </div>
-    <div class="ov-class-body ${ci===D.classes.length-1?"":""}${ci===D.classes.length-1?"last":""}" id="${bid}" style="border-bottom:1px solid var(--border2)">`;
-    if(exps.length===0){html+=`<div style="font-size:0.78rem;color:var(--text3);padding:4px 0">No expenses recorded.</div>`;}
-    else{
-      Object.entries(cm).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>{
-        html+=`<div class="mini-cat-row"><span style="font-size:0.85rem;width:22px;flex-shrink:0">${catEmoji(cat)}</span><span class="mini-cat-name">${catLabel(cat)}</span><span class="mini-cat-amt">${fmt(amt)}</span></div>`;
-      });
-      html+=`<div class="mini-recents"><div class="mini-rec-lbl">Recent</div>`;
-      topExps.forEach(e=>{html+=`<div class="mini-rec-row"><span class="mini-rec-date">${fmtDate(e.date)}</span><span class="mini-rec-desc">${e.note||catLabel(e.cat)}</span><span class="mini-rec-amt">${fmt(e.amt)}</span></div>`;});
-      html+=`</div>`;
-      if(exps.length>4)html+=`<div style="margin-top:6px"><button onclick="selectClass('${cls.id}');switchPage('classes')" style="background:none;border:none;color:#3B82F6;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:0">View all ${exps.length} entries →</button></div>`;
-    }
-    html+=`</div>`;
-  });
-  html+=`</div></div></div>`;
-  el.innerHTML=html;
-}
-
-function toggleOvClass(id){
-  const el=document.getElementById(id);const ch=document.getElementById("chev_"+id);
-  if(!el)return;el.classList.toggle("open");if(ch)ch.classList.toggle("open");
-}
-
-// ─── ENTRY ROW HTML ──────────────────────────────────────────────────
-function entryRowHtml(e,clsLabel){
-  return`<div class="entry-row">
-    <div class="entry-dot" style="background:${catColor(e.cat)}"></div>
-    <div class="entry-body">
-      <div class="entry-title">${catEmoji(e.cat)} ${e.note||catLabel(e.cat)}</div>
-      <div class="entry-meta">${fmtDate(e.date)}${clsLabel?" · "+clsLabel:""} · ${catLabel(e.cat)}</div>
-    </div>
-    <div class="entry-right">
-      <div class="entry-amt">${fmt(e.amt)}</div>
-      <span class="entry-mode ${modeCls(e.mode)}">${e.mode}</span>
-    </div>
-    <div class="entry-actions">
-      <button class="btn-circle" onclick="event.stopPropagation();openEditExpense('${e.id}')" title="Edit">✏️</button>
-      <button class="btn-del" onclick="event.stopPropagation();askDeleteExp('${e.id}')" title="Delete">✕</button>
-    </div>
-  </div>`;
-}
 
 function rerender(){
-  if(currentPage==="home")renderHome();
-  if(currentPage==="classes")renderClasses();
-  if(currentPage==="overview")renderOverview();
+  if(currentPage==='home')renderHome();
+  if(currentPage==='classes')renderClasses();
 }
 function renderAll(){renderHeader();renderHome();renderChecklist();}
 
 // ─── TOAST ───────────────────────────────────────────────────────────
 function toast(msg){
-  const el=document.getElementById("toast");el.textContent=msg;
-  el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2200);
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(function(){el.classList.remove('show');},2200);
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────
 load();initTheme();initFontSize();renderAll();
-if(!D.student)setTimeout(()=>openSheet("student"),700);
+if(!D.student)setTimeout(function(){openSheet('student');},700);
+
 </script>
 </body>
 </html>
