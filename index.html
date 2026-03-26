@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
+<title>School Ledger</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="School Ledger">
+<meta name="theme-color" content="#0d0d10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<script>
+// ── PWA: Fully inline for single-file deployment ──
+(function(){
+  // 1. Get icon from existing apple-touch-icon (already base64 in HTML)
+  const iconHref=document.querySelector('link[rel=apple-touch-icon]')?.href||'';
+
+  // 2. Inline Web App Manifest (Android standalone mode)
+  const manifest=JSON.stringify({
+    name:"School Ledger",
+    short_name:"School Ledger",
+    start_url:"./",
+    display:"standalone",
+    background_color:"#0d0d10",
+    theme_color:"#0d0d10",
+    orientation:"portrait",
+    icons:[
+      {src:iconHref,sizes:"180x180",type:"image/png"},
+      {src:iconHref,sizes:"512x512",type:"image/png",purpose:"any maskable"}
+    ]
+  });
+  const mBlob=new Blob([manifest],{type:'application/json'});
+  const mLink=document.createElement('link');
+  mLink.rel='manifest';
+  mLink.href=URL.createObjectURL(mBlob);
+  document.head.appendChild(mLink);
+
+  // 3. Inline Service Worker (no separate sw.js file needed)
+  if('serviceWorker' in navigator){
+    const swCode=`
+      self.addEventListener('install',()=>self.skipWaiting());
+      self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
+      self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
+    `;
+    const swBlob=new Blob([swCode],{type:'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob),{scope:'/'}).catch(()=>{});
+  }
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+
+:root {
+  --bg:       #0d0d10;
+  --surface:  #141417;
+  --surface2: #1e1e25;
+  --surface3: #26262f;
+  --border:   #4a4a60;
+  --border2:  #383850;
+  --scrim:    rgba(0,0,0,0.72);
+
+  --text1: #f4f4fa;
+  --text2: #c8c8e0;
+  --text3: #b0b0cc;
+
+  --green:     #22c55e;
+  --green-bg:  rgba(34,197,94,0.1);
+  --red:       #f87171;
+  --red-bg:    rgba(248,113,113,0.1);
+  --amber:     #fbbf24;
+  --amber-bg:  rgba(251,191,36,0.1);
+
+  --accent:    rgba(255,255,255,0.9);
+  --accent2:   rgba(255,255,255,0.06);
+  --blue:      #3B82F6;
+
+  --mono: 'Inter', sans-serif;
+  --nav-h: 60px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --r: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --ease: cubic-bezier(0.16,1,0.3,1);
+  --spring: cubic-bezier(0.34,1.56,0.64,1);
+}
+[data-theme="soft-dark"] {
+  --bg:       #1a1a1f;
+  --surface:  #222228;
+  --surface2: #2a2a32;
+  --surface3: #313139;
+  --border:   #4c4c5c;
+  --border2:  #3d3d4a;
+  --scrim:    rgba(0,0,0,0.65);
+  --text1: #ececf1;
+  --text2: #b8b8c8;
+  --text3: #888898;
+}
+[data-theme="soft-dark"] .top-header { background: rgba(26,26,31,0.96) }
+[data-theme="soft-dark"] .tab-bar { background: rgba(26,26,31,0.97) }
+[data-theme="light"] {
+  --bg:       #f2f2f7;
+  --surface:  #ffffff;
+  --surface2: #ffffff;
+  --surface3: #f0f0f5;
+  --border:   #c8c8d8;
+  --border2:  #d8d8e4;
+  --text1:    #1a1a25;
+  --text2:    #606078;
+  --text3:    #9898b0;
+  --accent2:  rgba(0,0,0,0.04);
+  --scrim:    rgba(0,0,0,0.45);
+}
+[data-theme="light"] .top-header { background: var(--bg); box-shadow: none; border-bottom: 1px solid var(--border) }
+[data-theme="light"] .tab-bar { background: var(--bg); border-top: 1px solid var(--border) }
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent }
+html { height:100%; overflow-x:hidden; font-size:16px; background:var(--bg) }
+body {
+  font-family:'Inter',-apple-system,sans-serif;
+  background:var(--bg); color:var(--text1);
+  min-height:100vh; max-width:100vw;
+  padding-bottom:calc(var(--nav-h) + var(--safe-b) + 4px);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+body.scroll-locked {
+  overflow:hidden;
+  position:fixed;
+  width:100%;
+  touch-action:none;
+  -webkit-overflow-scrolling:auto;
+}
+::-webkit-scrollbar { width:0; height:0 }
+
+/* ── PAGES ── */
+.page { display:none; max-width:100%; overflow-x:hidden }
+.page.active { display:block; animation:pageIn 0.22s var(--ease) both }
+@keyframes pageIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+.container { width:100%; max-width:480px; margin:0 auto; padding:12px 14px 16px }
+
+/* ── HEADER ── */
+.top-header {
+  position:sticky; top:0; z-index:80;
+  background:rgba(13,13,16,0.96);
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border2);
+  padding:calc(env(safe-area-inset-top, 12px) + 12px) 16px 11px;
+  display:flex; align-items:center; justify-content:center;
+}
+.hdr-inner { width:100%; max-width:480px; display:flex; align-items:center; justify-content:space-between; }
+.hdr-left { display:flex; align-items:center; gap:10px }
+.avatar-btn {
+  width:2.2rem; height:2.2rem; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.78rem; font-weight:700; cursor:pointer; border:none; color:#fff;
+  transition:transform 180ms var(--spring); flex-shrink:0;
+}
+.avatar-btn:active { transform:scale(0.9) }
+.hdr-greeting { font-size:0.72rem; color:var(--text3); font-weight:400; line-height:1; letter-spacing:0.1px }
+.hdr-name { font-size:1.18rem; font-weight:800; color:var(--text1); letter-spacing:-0.4px; line-height:1.2 }
+.hdr-right { display:flex; align-items:center; gap:7px }
+.hdr-add-btn{width:34px;height:34px;border-radius:50%;background:#3B82F6;border:none;color:#fff;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(59,130,246,.4);transition:all 120ms var(--spring);flex-shrink:0}
+.hdr-add-btn:active{transform:scale(.88);opacity:.85}
+.hdr-icon-btn {
+  width:2rem; height:2rem; border-radius:8px;
+  background:var(--surface2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:0.85rem;
+}
+
+/* ── DASHBOARD STAT GRID ── */
+.stat-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:10px; padding:12px 14px 0;
+}
+.stat-grid-3 { grid-template-columns: repeat(3,1fr) }
+.stat-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:14px 14px 13px;
+  cursor:default; transition:background 120ms;
+}
+.stat-card.full { grid-column: 1 / -1 }
+.stat-card.tap { cursor:pointer }
+.stat-card.tap:active { background:var(--surface2) }
+.stat-label {
+  font-size:0.65rem; font-weight:600; color:var(--text3);
+  letter-spacing:0.5px; margin-bottom:7px; text-transform:uppercase;
+}
+[data-theme="light"] .stat-label { color:#555570 }
+[data-theme="light"] .inv-stat-label { color:#555570 }
+[data-theme="light"] .wealth-item-label { color:#555570 }
+[data-theme="light"] .goal-target { color:#555570 }
+[data-theme="light"] .cf-label { color:#555570 }
+.stat-val {
+  font-family:var(--mono); font-size:0.62rem; font-weight:700;
+  color:var(--text1); letter-spacing:0; line-height:1;
+}
+.stat-val.lg { font-size:1.7rem }
+.stat-sub { font-size:0.84rem; color:var(--text3); margin-top:5px }
+.pnl-pill {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:99px; font-size:0.72rem; font-weight:700;
+  font-family:var(--mono);
+}
+
+/* ── SECTION HEADER ── */
+.sec-hdr-card {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:11px 14px; cursor:pointer; user-select:none;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:var(--r-lg); margin-bottom:8px;
+  transition:background 120ms;
+}
+.sec-hdr-card:active { background:var(--surface3) }
+.sec-hdr-left { display:flex; align-items:center; gap:9px; min-width:0 }
+.sec-hdr-title { font-size:0.86rem; font-weight:600; color:var(--text1); display:inline-flex; align-items:center; gap:8px; letter-spacing:0 }
+.sec-hdr-title svg { opacity:0.45; flex-shrink:0 }
+.sec-badge {
+  font-size:0.68rem; font-weight:700; color:#3B82F6;
+  background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2);
+  padding:2px 8px; border-radius:99px; letter-spacing:0;
+}
+.sec-hdr-right { display:flex; align-items:center; gap:8px; flex-shrink:0 }
+.sec-total { font-size:0.84rem; font-weight:700; color:var(--text1) }
+.sec-caret { color:var(--text3); transition:transform 0.25s var(--ease); display:flex; align-items:center; }
+.sec-caret svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+.sec-caret.open { transform:rotate(180deg) }
+.sec-body { overflow:hidden; max-height:5000px; transition:max-height 0.32s var(--ease),opacity 0.2s ease; opacity:1 }
+.sec-body.closed { max-height:0; opacity:0; pointer-events:none }
+
+/* ── ROWS ── */
+.row-list-wrap {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-xl); overflow:hidden;
+}
+.row-item {
+  display:flex; align-items:center; gap:12px;
+  padding:12px 14px; background:transparent;
+  border-bottom:1px solid var(--border2);
+  cursor:pointer; transition:background 120ms;
+}
+.row-item:last-child { border-bottom:none }
+.row-item.tap { cursor:pointer }
+.row-item:active { background:var(--surface2) }
+.row-icon {
+  width:34px; height:34px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surface2); border:1px solid var(--border); color:var(--text2);
+}
+.row-icon svg { width:15px; height:15px; opacity:0.85 }
+.row-body { flex:1; min-width:0 }
+.row-title { font-size:0.88rem; font-weight:600; color:var(--text1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.row-sub { font-size:0.72rem; color:var(--text3); margin-top:2px }
+.row-change { font-size:0.73rem; font-weight:600; margin-top:2px }
+.row-right { text-align:right; flex-shrink:0; display:flex; align-items:center; gap:8px }
+.row-value { font-size:0.92rem; font-weight:700; color:var(--text1) }
+.row-actions { display:flex; gap:4px; align-items:center }
+
+/* ── GOAL ROW ── */
+.goal-row {
+  display:flex; align-items:center; gap:12px;
+  padding:13px 14px; cursor:pointer; background:transparent;
+  border-bottom:1px solid var(--border2);
+  transition:background 120ms;
+}
+.goal-row:last-of-type { border-bottom:none }
+.goal-row:active { background:var(--surface2) }
+.goal-icon { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--surface2); border:1px solid var(--border); color:var(--text2) }
+.goal-icon svg { width:15px; height:15px; opacity:0.85 }
+.goal-body { flex:1; min-width:0 }
+.goal-chevron { color:var(--text3); opacity:0.9; flex-shrink:0; display:flex; align-items:center }
+.goal-chevron svg { width:14px; height:14px }
+.ins-type-tag { font-size:0.62rem; font-weight:700; color:var(--text3); letter-spacing:0.3px; text-transform:uppercase; margin-top:1px }
+.goal-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px }
+.goal-name { font-size:0.88rem; font-weight:600; color:var(--text1) }
+.goal-pct { font-size:0.84rem; font-weight:800; color:var(--text1); flex-shrink:0 }
+[data-theme="light"] .goal-pct { color:var(--text1); font-weight:700 }
+.prog-track { height:6px; background:var(--surface3); border-radius:99px; overflow:hidden }
+.prog-fill { height:100%; border-radius:99px; transition:width 0.5s var(--ease) }
+.goal-amounts { display:flex; align-items:center; justify-content:space-between; margin-top:5px }
+.goal-saved { font-size:0.88rem; font-weight:700; color:var(--text1) }
+.goal-target { font-size:0.68rem; color:var(--text3) }
+
+/* ── MINI GOAL ── */
+.mini-goal {
+  display:flex; align-items:center; gap:10px; padding:10px 13px;
+  cursor:pointer; background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r); margin-bottom:6px; transition:background 120ms;
+}
+.mini-goal:active { background:var(--surface2) }
+.mini-ico { font-size:0.86rem; flex-shrink:0; width:24px; text-align:center; opacity:0.85 }
+.mini-body { flex:1; min-width:0 }
+.mini-name { font-size:0.84rem; font-weight:600; color:var(--text1) }
+.mini-prog { height:4px; background:var(--surface3); border-radius:99px; overflow:hidden; margin-top:5px }
+.mini-fill { height:100%; border-radius:99px; transition:width 0.5s var(--ease) }
+.mini-pct { font-family:var(--mono); font-size:0.86rem; font-weight:700; flex-shrink:0; color:var(--text1) }
+[data-theme="light"] .mini-pct { color:var(--text1); font-weight:700 }
+
+/* ── INVESTMENT CATEGORY ── */
+.inv-cat-label {
+  font-size:0.72rem; font-weight:700; color:var(--text3);
+  letter-spacing:0;
+  padding:4px 0; margin:12px 0 6px;
+}
+
+/* ── CHILD CARD ── */
+.child-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); overflow:hidden; margin-bottom:8px;
+}
+.child-hdr {
+  padding:13px 14px; display:flex; align-items:center; gap:11px;
+  cursor:pointer; transition:background 120ms;
+}
+.child-hdr:active { background:var(--surface2) }
+.child-avatar {
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.12); color:#3B82F6;
+}
+.child-avatar svg { width:16px; height:16px; opacity:0.85 }
+.child-name { font-size:0.9rem; font-weight:600; color:var(--text1) }
+.child-meta { font-size:0.75rem; color:var(--text3); margin-top:2px }
+.phase-row {
+  display:flex; align-items:center; gap:9px; padding:11px 14px;
+  cursor:pointer; border-top:1px solid var(--border2); transition:background 120ms;
+  position:relative;
+}
+.phase-row::after {
+  content:'›'; font-size:1.2rem; font-weight:300; color:var(--text3); opacity:0.9;
+  flex-shrink:0; margin-left:4px;
+}
+.phase-row:active { background:var(--surface2) }
+.phase-ico { flex-shrink:0; display:flex; align-items:center; justify-content:center }
+.dark .phase-ico svg { opacity:0.9 }
+.phase-info { flex:1; min-width:0 }
+.phase-name { font-size:0.85rem; font-weight:600; color:var(--text1) }
+.phase-age { font-size:0.78rem; color:var(--text3); margin-top:1px }
+.phase-prog { width:80px; flex-shrink:0 }
+
+/* ── CHECKLIST ── */
+.check-item {
+  display:flex; align-items:flex-start; gap:12px; padding:11px 14px;
+  cursor:pointer; background:transparent;
+  border-bottom:1px solid var(--border2);
+  transition:background 120ms;
+}
+.check-item:last-of-type { border-bottom:none }
+.check-item:active { background:var(--surface2) }
+.check-box {
+  width:20px; height:20px; border-radius:6px; border:1.5px solid var(--text3);
+  flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  margin-top:1px; transition:all 150ms var(--spring);
+}
+.check-item.done .check-box { background:#3B82F6; border-color:#3B82F6 }
+:root .check-item.done .check-box { background:#3B82F6; border-color:#3B82F6 }
+[data-theme="light"] .check-item.done .check-box { background:#3B82F6; border-color:#3B82F6 }
+.check-label { font-size:0.84rem; font-weight:600; color:var(--text1) }
+.check-desc { font-size:0.75rem; color:var(--text3); margin-top:2px }
+/* .check-item.done .check-label — keep full color, Done pill is enough */
+
+/* ── DARK MODE: boost key financial values & percentages to full white ── */
+:root .row-value { color:var(--text1) }
+:root .row-sub { color:var(--text2) }
+:root .wealth-item-val { color:var(--text1) }
+:root .cf-val { color:var(--text1) }
+:root .cf-label { color:var(--text2) }
+:root .gh-pct { color:var(--text1) }
+:root .sec-total { color:var(--text1) }
+[data-theme="light"] .row-value { color:var(--text1) }
+[data-theme="light"] .wealth-item-val { color:var(--text1) }
+
+/* ── LIGHT MODE: all financial values dark & bold ── */
+[data-theme="light"] .acat-val { color:var(--text1); font-weight:700 }
+[data-theme="light"] .acat-pct { color:#3B82F6; font-weight:700 }
+[data-theme="light"] .goal-pct { color:var(--text1); font-weight:700 }
+[data-theme="light"] .mini-pct { color:var(--text1); font-weight:700 }
+[data-theme="light"] .sec-total { color:var(--text1); font-weight:700 }
+[data-theme="light"] .row-value { color:var(--text1); font-weight:700 }
+[data-theme="light"] .goal-saved { color:var(--text1); font-weight:700 }
+[data-theme="light"] .inv-stat-val { color:var(--text1); font-weight:700 }
+[data-theme="light"] .wealth-item-val { color:var(--text1); font-weight:700 }
+[data-theme="light"] .cf-val { color:var(--text1); font-weight:700 }
+[data-theme="light"] .gh-pct { color:var(--text1); font-weight:700 }
+[data-theme="light"] .stat-val { color:var(--text1); font-weight:700 }
+
+/* ── MID-LABEL: dashboard section labels — readable but subordinate ── */
+.lbl {
+  font-size:0.65rem; font-weight:600; letter-spacing:0.5px; margin-bottom:4px;
+  color:#555570; text-transform:uppercase;
+}
+[data-theme="light"] .lbl { color:#555570 }
+:root .lbl { color:var(--text3) }
+
+/* ── MORE PAGE ── */
+.more-row {
+  display:flex; align-items:center; gap:12px; padding:14px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-lg); margin-bottom:8px;
+  cursor:pointer; transition:background 120ms;
+}
+.more-row:active { background:var(--surface2) }
+.more-icon {
+  width:38px; height:38px; border-radius:11px; background:var(--surface2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--text2);
+}
+.more-icon svg { width:16px; height:16px; opacity:0.85 }
+.more-row-body { flex:1 }
+.more-row-title { font-size:0.84rem; font-weight:600; color:var(--text1) }
+.more-row-sub { font-size:0.75rem; color:var(--text3); margin-top:1px }
+.more-row-chevron { color:var(--text3); font-size:0.75rem; flex-shrink:0 }
+
+/* ── WEALTH CARD ── */
+.wealth-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-xl); padding:18px; margin-bottom:12px;
+}
+.wealth-val {
+  font-family:var(--mono); font-size:2rem; font-weight:700;
+  color:var(--text1); letter-spacing:-0.5px; margin:6px 0;
+}
+.wealth-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border2) }
+.wealth-item-label { font-size:0.86rem; color:var(--text3); font-weight:600; letter-spacing:0; margin-bottom:3px }
+.wealth-item-val { font-family:var(--mono); font-size:0.88rem; font-weight:700 }
+
+/* ── INV SUMMARY ── */
+.inv-stats { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-bottom:12px }
+.inv-stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:13px }
+.inv-stat-label { font-size:0.65rem; font-weight:600; color:var(--text3); letter-spacing:0.5px; margin-bottom:5px; text-transform:uppercase }
+.inv-stat-val { font-family:var(--mono); font-size:0.9rem; font-weight:700; color:var(--text1) }
+
+/* ── PILLS ── */
+.pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:99px; font-size:0.63rem; font-weight:600 }
+.pill-green  { background:rgba(34,197,94,0.12);  color:#16a34a; border:1px solid rgba(34,197,94,0.25) }
+.pill-red    { background:var(--red-bg); color:var(--red); border:1px solid rgba(220,38,38,0.2) }
+.pill-amber  { background:var(--amber-bg);  color:var(--amber); border:1px solid rgba(180,83,9,0.18) }
+.pill-muted  { background:var(--surface2); color:var(--text3); border:1px solid var(--border) }
+.pill-blue   { background:rgba(59,130,246,0.12);  color:#3B82F6; border:1px solid rgba(59,130,246,0.25) }
+
+/* ── BUTTONS ── */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  font-family:'Inter',sans-serif; font-weight:700; border:none; cursor:pointer;
+  transition:transform 150ms var(--spring),opacity 120ms; user-select:none;
+}
+.btn:active { transform:scale(0.94); opacity:0.88 }
+.btn-primary { background:#3B82F6; color:#fff; padding:11px 18px; border-radius:var(--r); font-size:0.88rem }
+.btn-ghost { background:var(--surface2); color:var(--text2); padding:10px 15px; border-radius:var(--r); font-size:0.88rem; border:1px solid var(--border) }
+.btn-danger { background:var(--red-bg); color:var(--red); padding:10px 15px; border-radius:var(--r); font-size:0.88rem; border:1px solid rgba(248,113,113,0.2) }
+.btn-sm { padding:6px 12px; font-size:0.86rem; border-radius:7px }
+.btn-circle {
+  width:24px; height:24px; border-radius:50%; background:rgba(59,130,246,0.08);
+  border:1px solid rgba(59,130,246,0.18); font-size:0.75rem; padding:0;
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  transition:transform 150ms var(--spring); color:#3B82F6;
+}
+.btn-circle:active { transform:scale(0.88) }
+.btn-del {
+  width:24px; height:24px; border-radius:50%; background:rgba(248,113,113,0.1);
+  border:1.5px solid rgba(248,113,113,0.4); display:inline-flex; align-items:center;
+  justify-content:center; cursor:pointer; padding:0; transition:transform 150ms var(--spring);
+  color:var(--red); font-size:0.75rem;
+}
+.btn-del:hover { background:rgba(248,113,113,0.22); border-color:rgba(248,113,113,0.6); }
+.btn-del:active { transform:scale(0.88) }
+
+/* ── TAB BAR ── */
+.tab-bar {
+  position:fixed; bottom:0; left:0; right:0; z-index:200;
+  background:rgba(13,13,16,0.97);
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  height:calc(var(--nav-h) + var(--safe-b));
+  padding-bottom:var(--safe-b);
+  display:flex; align-items:flex-start; justify-content:center;
+  padding-top:7px;
+}
+.tab-bar-inner {
+  width:100%; max-width:480px;
+  display:flex; align-items:flex-start; justify-content:space-around;
+}
+.tab-item {
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+  cursor:pointer; padding:0; background:none; border:none;
+  color:var(--text3); transition:color 120ms;
+}
+.tab-item.active { color:#3B82F6 }
+.tab-icon { height:26px; display:flex; align-items:center; justify-content:center; transition:transform 180ms var(--spring) }
+.tab-icon svg { width:1.35rem; height:1.35rem; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; opacity:0.35; transition:opacity 200ms }
+.tab-item.active .tab-icon svg { opacity:1; stroke:#3B82F6 }
+.tab-label { font-size:0.68rem; font-weight:700; letter-spacing:0.2px }
+
+/* ── BOTTOM SHEET ── */
+.sheet-overlay {
+  position:fixed; inset:0; z-index:500; background:var(--scrim);
+  opacity:0; pointer-events:none; transition:opacity 0.22s;
+}
+.sheet-overlay.open { opacity:1; pointer-events:all }
+.sheet {
+  position:fixed; bottom:0; left:0; right:0; z-index:501;
+  max-width:480px; margin:0 auto;
+  background:var(--surface); border-radius:20px 20px 0 0;
+  border:1px solid var(--border); border-bottom:none;
+  max-height:min(88dvh,90vh);
+  overflow-y:auto; overflow-x:hidden;
+  overscroll-behavior:contain;
+  transform:translateY(110%); transition:transform 0.3s var(--ease);
+  padding-bottom:calc(16px + var(--safe-b));
+  visibility:hidden;
+  /* Prevent the sheet from resizing when keyboard opens */
+  will-change:transform;
+}
+.sheet.open { transform:translateY(0); visibility:visible }
+.sheet-handle { width:36px; height:4px; background:var(--border); border-radius:99px; margin:10px auto 0; opacity:0; transition:opacity 0.2s }
+.sheet.open .sheet-handle { opacity:1 }
+.sheet-hdr {
+  position:sticky; top:0; z-index:2;
+  padding:14px 16px 12px; display:flex; align-items:center; justify-content:space-between;
+  background:var(--surface); border-bottom:1px solid var(--border2);
+}
+.sheet-title { font-size:0.9rem; font-weight:800; color:var(--text1); display:flex; align-items:center; gap:8px; }
+.sheet-close {
+  width:28px; height:28px; border-radius:50%; background:var(--surface2);
+  border:1px solid var(--border); cursor:pointer; display:flex;
+  align-items:center; justify-content:center; font-size:0.88rem; color:var(--text2);
+}
+.sheet-body { padding:14px 16px; }
+
+/* ── FORMS — critical mobile fixes ── */
+.fg { margin-bottom:13px }
+.fl { font-size:0.68rem; font-weight:700; color:var(--text3); letter-spacing:0; margin-bottom:5px; display:block }
+.fi {
+  width:100%; max-width:100%;
+  /* 1rem (= 16px base) MINIMUM prevents iOS auto-zoom which causes sheet widening */
+  font-size:1rem !important;
+  padding:10px 12px;
+  border:1px solid var(--border); border-radius:var(--r);
+  font-family:'Inter',sans-serif; font-weight:500;
+  background:var(--surface2); color:var(--text1);
+  outline:none; -webkit-appearance:none;
+  transition:border-color 150ms,box-shadow 150ms;
+  box-sizing:border-box;
+}
+.fi:focus { border-color:#3B82F6; box-shadow:0 0 0 3px rgba(59,130,246,0.12); background:var(--surface) }
+.fi::placeholder { color:var(--text3) }
+.fi-sel {
+  appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234a4a60' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:34px; cursor:pointer;
+}
+.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:9px; align-items:start }
+@media (max-width:340px) { .form-row2 { grid-template-columns:1fr } }
+.form-row2 .fg { display:flex; flex-direction:column }
+.form-row2 .fg .fi { flex:1; min-height:44px }
+.form-actions { display:flex; gap:9px; justify-content:flex-end; margin-top:16px; padding-top:14px; border-top:1px solid var(--border2) }
+.form-sec { font-size:0.72rem; font-weight:700; letter-spacing:0; color:var(--text3); margin:15px 0 8px; padding-bottom:5px; border-bottom:1px solid var(--border2) }
+
+/* ── GENDER ── */
+.gender-row { display:grid; grid-template-columns:1fr 1fr; gap:7px }
+.gender-opt { padding:9px; border-radius:var(--r); border:1px solid var(--border); text-align:center; cursor:pointer; font-size:0.88rem; font-weight:600; color:var(--text2); background:var(--surface2); transition:all 140ms }
+.gender-opt.sel-boy  { border-color:#60a5fa; background:rgba(96,165,250,0.12); color:#60a5fa }
+.gender-opt.sel-girl { border-color:#60a5fa; background:rgba(96,165,250,0.12); color:#60a5fa }
+.gender-opt:active { transform:scale(0.95) }
+
+/* ── PHASE OPTS ── */
+.phase-opts { display:flex; flex-direction:column; gap:5px }
+.phase-opt { display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:var(--r); border:1px solid var(--border); background:var(--surface2); cursor:pointer; transition:all 140ms }
+.phase-opt.on { border-color:rgba(255,255,255,0.25); background:var(--surface3) }
+.phase-opt-check { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--text3); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:0.55rem; color:#fff; flex-shrink:0; transition:all 150ms var(--spring) }
+.phase-opt.on .phase-opt-check { background:#3B82F6; border-color:#3B82F6 }
+.phase-opt.on { border-color:rgba(59,130,246,0.3); background:rgba(59,130,246,0.06) }
+.phase-opt.custom { border-style:dashed }
+.add-custom-phase-row {
+  display:grid;
+  grid-template-columns: 1fr 68px 60px auto;
+  gap:6px; margin-top:6px; padding:10px 12px;
+  background:var(--surface2); border:1.5px solid var(--border);
+  border-radius:var(--r); align-items:center;
+}
+.add-custom-phase-row .fi { font-size:1rem !important; padding:7px 10px; width:100% }
+.add-custom-phase-row .fi-sm { width:64px; flex:none }
+
+/* ── SIP CALLOUT ── */
+.sip-callout { background:var(--green-bg); border:1px solid rgba(74,222,128,0.2); border-radius:var(--r); padding:10px 13px; margin-top:9px }
+.sip-label { font-size:0.72rem; font-weight:700; letter-spacing:0; color:var(--green); margin-bottom:2px }
+.sip-val { font-family:var(--mono); font-size:0.95rem; font-weight:700; color:var(--text1) }
+
+/* ── INV LINK ── */
+.inv-link-item { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--r); border:1px solid var(--border); background:var(--surface2); cursor:pointer; margin-bottom:5px; transition:all 140ms }
+.inv-link-item.on { border-color:rgba(59,130,246,0.35); background:rgba(59,130,246,0.06) }
+.inv-link-check { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--text3); background:var(--surface); display:flex; align-items:center; justify-content:center; font-size:0.52rem; color:#fff; flex-shrink:0; transition:all 150ms var(--spring) }
+.inv-link-item.on .inv-link-check { background:#3B82F6; border-color:#3B82F6 }
+/* ── LIGHT MODE: radio button visibility fixes ── */
+[data-theme="light"] .inv-link-check { border-color:var(--text3); background:#ffffff }
+[data-theme="light"] .inv-link-item:hover .inv-link-check { border-color:#3B82F6; background:rgba(59,130,246,0.05) }
+[data-theme="light"] .inv-link-item.on .inv-link-check { background:#3B82F6; border-color:#3B82F6 }
+[data-theme="light"] .inv-link-item { border-color:#b8b8cc }
+[data-theme="light"] .inv-link-item.on { border-color:rgba(59,130,246,0.4); background:rgba(59,130,246,0.05) }
+
+/* ── ADD ROW ── */
+.add-row {
+  display:flex; align-items:center; justify-content:center; padding:13px;
+  border:1.5px solid rgba(59,130,246,0.35); border-radius:var(--r-lg);
+  cursor:pointer; color:#3B82F6; font-size:0.86rem; font-weight:600;
+  gap:6px; transition:all 120ms; margin-top:6px; background:rgba(59,130,246,0.04);
+}
+.add-row:active { background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.6) }
+
+/* ── EMPTY ── */
+.empty { text-align:center; padding:28px 16px; color:var(--text3) }
+.empty-icon { font-size:1.4rem; margin-bottom:8px; opacity:0.4 }
+.empty-text { font-size:0.84rem; line-height:1.5 }
+
+/* FAB moved to header top-right */
+
+/* ── QUICK ADD SHEET ── */
+.qa-overlay {
+  position:fixed; inset:0; z-index:400; background:var(--scrim);
+  opacity:0; pointer-events:none;
+  transition:opacity 0.22s;
+}
+.qa-overlay.open { opacity:1; pointer-events:all }
+.qa-sheet {
+  position:fixed; bottom:0; left:0; right:0; z-index:401;
+  max-width:480px; margin:0 auto;
+  background:var(--surface); border-radius:24px 24px 0 0;
+  border:1px solid var(--border); border-bottom:none;
+  padding-bottom:calc(20px + var(--safe-b));
+  transform:translateY(110%); transition:transform 0.32s var(--ease);
+  visibility:hidden;
+}
+.qa-sheet.open { transform:translateY(0); visibility:visible }
+.qa-handle { width:36px; height:4px; background:var(--border); border-radius:99px; margin:12px auto 0 }
+.qa-title {
+  font-size:0.78rem; font-weight:700; color:var(--text3);
+  letter-spacing:0;
+  padding:16px 20px 12px;
+  border-bottom:1px solid var(--border2);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.qa-close-btn {
+  width:28px; height:28px; border-radius:50%;
+  background:var(--surface2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:var(--text2); flex-shrink:0;
+  transition:background 120ms;
+}
+.qa-close-btn:active { background:var(--surface3); transform:scale(0.9) }
+.qa-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:10px; padding:14px 16px;
+}
+.qa-action {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px; padding:20px 12px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:var(--r-lg); cursor:pointer;
+  transition:background 130ms, transform 150ms var(--spring), border-color 130ms;
+  text-align:center;
+}
+.qa-action:active { transform:scale(0.95); background:var(--surface3) }
+.qa-action-icon {
+  width:46px; height:46px; border-radius:13px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.15); color:#3B82F6;
+}
+.qa-action-icon svg { width:20px; height:20px; opacity:0.9 }
+.qa-action-label { font-size:0.9rem; font-weight:800; color:var(--text1); line-height:1.2 }
+.qa-action-sub { font-size:0.76rem; color:var(--text3); line-height:1.3; margin-top:1px }
+
+/* ── CONFIRM ── */
+.confirm-overlay {
+  position:fixed; inset:0; z-index:900; background:var(--scrim);
+  backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center;
+  padding:20px; opacity:0; pointer-events:none; transition:opacity 0.2s;
+}
+.confirm-overlay.open { opacity:1; pointer-events:all }
+.confirm-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-xl);
+  width:100%; max-width:280px; overflow:hidden;
+  transform:scale(0.9) translateY(8px); transition:transform 0.28s var(--spring);
+}
+.confirm-overlay.open .confirm-box { transform:scale(1) translateY(0) }
+.confirm-icon-wrap { display:flex; align-items:center; justify-content:center; padding:24px 20px 6px }
+.confirm-icon-circle { width:48px; height:48px; border-radius:50%; background:var(--red-bg); display:flex; align-items:center; justify-content:center; font-size:1.45rem }
+.confirm-title { font-size:0.84rem; font-weight:700; text-align:center; padding:0 20px 4px; color:var(--text1) }
+.confirm-sub { font-size:0.88rem; color:var(--text2); text-align:center; padding:0 20px 20px; line-height:1.5 }
+.confirm-actions { display:grid; grid-template-columns:1fr 1fr; border-top:1px solid var(--border2) }
+.confirm-cancel { padding:14px; text-align:center; font-size:0.88rem; font-weight:600; color:var(--text2); cursor:pointer; background:none; border:none; border-right:1px solid var(--border2); font-family:'Inter',sans-serif }
+.confirm-cancel:active { background:var(--surface2) }
+.confirm-delete { padding:14px; text-align:center; font-size:0.88rem; font-weight:700; color:var(--red); cursor:pointer; background:none; border:none; font-family:'Inter',sans-serif }
+.confirm-delete:active { background:var(--red-bg) }
+
+/* ── TOAST ── */
+.toast {
+  position:fixed; bottom:calc(var(--nav-h) + 12px + var(--safe-b)); left:50%;
+  transform:translateX(-50%) translateY(6px);
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text1); padding:9px 20px; border-radius:99px;
+  font-size:0.88rem; font-weight:600; opacity:0; pointer-events:none;
+  transition:opacity 0.18s,transform 0.18s var(--spring);
+  white-space:nowrap; z-index:9999; box-shadow:0 4px 20px rgba(0,0,0,0.5);
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0) }
+
+/* ── APPEARANCE ── */
+.theme-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border2); }
+.fs-btn {
+  padding:8px 4px; border-radius:var(--r); border:1px solid var(--border);
+  background:var(--surface2); color:var(--text2); font-family:'Inter',sans-serif;
+  font-size:0.78rem; font-weight:700; cursor:pointer; transition:all 150ms var(--spring);
+}
+.fs-btn:active { transform:scale(0.93) }
+.fs-btn.active { background:#3B82F6; color:#fff; border-color:#3B82F6 }
+.toggle-track { width:42px; height:22px; border-radius:99px; background:var(--surface3); border:1px solid var(--border); cursor:pointer; position:relative; transition:background 200ms }
+.toggle-track.on { background:#3B82F6; border-color:#3B82F6 }
+.toggle-thumb { position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.25); transition:all 200ms var(--spring) }
+.toggle-track.on .toggle-thumb { left:22px; background:#fff }
+/* ── THEME PICKER ── */
+.theme-picker { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:14px; }
+.theme-opt {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding:12px 8px 10px; border-radius:var(--r-lg);
+  border:2px solid var(--border); background:var(--surface2);
+  cursor:pointer; transition:all 150ms var(--spring); user-select:none;
+}
+.theme-opt:active { transform:scale(0.94) }
+.theme-opt.active { border-color:#3B82F6; background:rgba(59,130,246,0.08) }
+.theme-opt-preview {
+  width:44px; height:30px; border-radius:8px; overflow:hidden;
+  border:1px solid rgba(255,255,255,0.1); flex-shrink:0; position:relative;
+}
+.theme-opt-label {
+  font-size:0.72rem; font-weight:700; color:var(--text2); letter-spacing:0;
+  text-align:center; line-height:1;
+}
+.theme-opt.active .theme-opt-label { color:#3B82F6 }
+.theme-opt-check {
+  width:16px; height:16px; border-radius:50%; background:#3B82F6;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity 150ms; flex-shrink:0;
+}
+.theme-opt.active .theme-opt-check { opacity:1 }
+
+/* Range slider — custom track + white thumb */
+.range-wrap{position:relative;width:100%;height:22px;display:flex;align-items:center}
+.range-track{position:absolute;left:0;right:0;height:4px;background:var(--surface3);border-radius:99px;top:50%;transform:translateY(-50%)}
+.range-fill{position:absolute;left:0;height:100%;background:#3B82F6;border-radius:99px;transition:width .1s}
+input[type=range].custom-range{position:relative;width:100%;height:22px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;margin:0;z-index:1;padding:0;outline:none}
+input[type=range].custom-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 6px rgba(0,0,0,.35);transition:transform .1s;margin-top:-9px}
+input[type=range].custom-range:active::-webkit-slider-thumb{transform:scale(1.15)}
+input[type=range].custom-range::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 6px rgba(0,0,0,.35)}
+input[type=range].custom-range::-webkit-slider-runnable-track{background:transparent;height:4px}
+input[type=range].custom-range::-moz-range-track{background:transparent;height:4px}
+
+/* ── BREAKDOWN ROWS ── */
+.breakdown-row {
+  display:flex; align-items:center; gap:11px; padding:11px 13px;
+  border-radius:var(--r); background:var(--surface); border:1px solid var(--border);
+  margin-bottom:7px;
+}
+
+
+/* ── CASH FLOW CARD ── */
+.cf-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; margin-bottom:0 }
+.cf-row { display:grid; grid-template-columns:1fr 1fr }
+.cf-cell { padding:11px 14px; border-right:1px solid var(--border2) }
+.cf-cell:last-child { border-right:none }
+.cf-label { font-size:0.65rem; font-weight:600; color:var(--text2); letter-spacing:0.5px; margin-bottom:4px; text-transform:uppercase }
+.cf-val { font-family:var(--mono); font-size:0.88rem; font-weight:700 }
+
+/* ── GOAL HEALTH CARD ── */
+.gh-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:13px 16px; margin-bottom:0 }
+.gh-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px }
+.gh-title { font-size:0.82rem; font-weight:800; color:var(--text1); letter-spacing:0 }
+.gh-pct { font-size:1rem; font-weight:800 }
+.gh-track { height:6px; background:var(--surface3); border-radius:99px; overflow:hidden }
+.gh-fill { height:100%; border-radius:99px; transition:width 0.6s var(--ease) }
+.gh-meta { font-size:0.68rem; color:var(--text3); margin-top:5px }
+
+/* ── RETIREMENT READINESS ── */
+.ret-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:13px 16px; margin-bottom:8px }
+.ret-bar-wrap { height:8px; background:var(--surface3); border-radius:99px; overflow:hidden; margin:8px 0 5px }
+.ret-bar { height:100%; border-radius:99px; transition:width 0.6s var(--ease) }
+
+/* ── DEBT PAYOFF BADGE ── */
+.payoff-badge { display:inline-flex; align-items:center; gap:3px; font-size:0.66rem; font-weight:700; color:var(--amber); background:var(--amber-bg); border:1px solid rgba(251,191,36,0.2); border-radius:99px; padding:2px 8px; margin-top:4px }
+/* ── Bucket Strategy ── */
+.bkt-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border2) }
+.bkt-row:last-child { border-bottom:none }
+.bkt-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0 }
+.bkt-info { flex:1; min-width:0 }
+.bkt-name { font-size:0.78rem; font-weight:700; color:var(--text1) }
+.bkt-sub { font-size:0.66rem; color:var(--text3); margin-top:1px }
+.bkt-val { font-size:0.88rem; font-weight:800; color:var(--text1); text-align:right; flex-shrink:0 }
+.bkt-bar-wrap { height:8px; background:var(--surface3); border-radius:99px; overflow:hidden; display:flex; margin:10px 0 6px }
+.bkt-bar-seg { height:100%; transition:width 0.5s var(--ease) }
+.bkt-alert { padding:8px 12px 8px 24px; border-radius:var(--r); font-size:0.72rem; font-weight:500; line-height:1.5; margin-top:8px; color:var(--text2); background:var(--surface2); border:1px solid var(--border2); position:relative }
+.bkt-alert::before { content:''; position:absolute; left:10px; top:14px; width:5px; height:5px; border-radius:50%; background:var(--text3) }
+.bkt-fund { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:0.72rem }
+.bkt-fund-name { flex:1; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.bkt-fund-val { color:var(--text1); font-weight:700; flex-shrink:0 }
+
+/* ── SWIPE INDICATOR ON SHEET HANDLE ── */
+.sheet-handle, .qa-handle { cursor:grab }
+
+/* ── BACKUP NUDGE BANNER ── */
+/* backup modal */
+.backup-modal-overlay {
+  position:fixed; inset:0; z-index:9000; background:var(--scrim);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; pointer-events:none; transition:opacity 0.22s;
+}
+.backup-modal-overlay.show { opacity:1; pointer-events:all }
+.backup-modal-box {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r-xl); width:100%; max-width:300px; overflow:hidden;
+  transform:scale(0.9) translateY(8px);
+  transition:transform 0.28s var(--spring);
+}
+.backup-modal-overlay.show .backup-modal-box { transform:scale(1) translateY(0) }
+
+.acat-row {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 2px; border-bottom:1px solid var(--border2);
+}
+.acat-row:last-child { border-bottom:none }
+.acat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+.acat-icon { flex-shrink:0; width:34px; height:34px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--text2) }
+.acat-icon svg { width:15px; height:15px; display:block; opacity:0.6 }
+.acat-info { flex:1; min-width:0 }
+.acat-name { font-size:0.85rem; font-weight:700; color:var(--text1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:5px }
+.acat-bar-wrap { height:5px; background:var(--surface3); border-radius:99px; overflow:hidden }
+.acat-bar { height:100%; border-radius:99px; transition:width 0.5s var(--ease) }
+.acat-val { font-size:0.84rem; font-weight:700; color:var(--text1); flex-shrink:0; text-align:right; min-width:52px }
+.acat-pct { font-size:0.82rem; color:#3B82F6; font-weight:700; flex-shrink:0; min-width:36px; text-align:right }
+/* ── CUSTOM DATE PICKER ── */
+.cal-wrap { position:relative }
+.cal-display {
+  width:100%; padding:10px 12px; border:1px solid var(--border);
+  border-radius:var(--r); background:var(--surface2); color:var(--text1);
+  font-family:'Inter',sans-serif; font-size:1rem; font-weight:500;
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; transition:border-color 150ms; user-select:none;
+}
+.cal-display.empty { color:var(--text3) }
+.cal-popup {
+  margin-top:6px;
+  width:252px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  overflow:hidden;
+  animation:calIn 0.15s var(--ease) both;
+}
+@keyframes calIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+.cal-nav { display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-bottom:1px solid var(--border2) }
+.cal-nav-btn { width:24px; height:24px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text2); transition:background 120ms; font-size:0.78rem; flex-shrink:0 }
+.cal-nav-btn:active { background:var(--surface3) }
+.cal-month-label { font-size:0.8rem; font-weight:700; color:var(--text1); cursor:pointer; padding:3px 6px; border-radius:6px; transition:background 120ms }
+.cal-month-label:active { background:var(--surface2) }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:0; padding:4px 5px }
+.cal-dow { font-size:0.56rem; font-weight:700; color:var(--text3); text-align:center; padding:3px 0 2px }
+.cal-day { width:32px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:500; cursor:pointer; color:var(--text1); transition:background 100ms }
+.cal-day:not(.empty-day):hover { background:var(--surface2) }
+.cal-day.today { color:var(--green); font-weight:700 }
+.cal-day.sel { background:var(--text1) !important; color:var(--bg); font-weight:700 }
+.cal-day.other-month { color:var(--text3) }
+.cal-day.empty-day { cursor:default }
+.cal-year-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; padding:7px; max-height:150px; overflow-y:auto }
+.cal-year-item { padding:5px 2px; border-radius:6px; text-align:center; font-size:0.74rem; font-weight:600; cursor:pointer; color:var(--text2); transition:background 100ms }
+.cal-year-item:hover { background:var(--surface2); color:var(--text1) }
+.cal-year-item.sel { background:var(--text1); color:var(--bg) }
+.cal-clear { padding:5px; border-top:1px solid var(--border2); text-align:center; font-size:0.72rem; color:var(--text3); cursor:pointer }
+.cal-clear:hover { color:var(--red) }
+
+/* ── CAL-ICO (calendar icon inside display) ── */
+.cal-ico { color:var(--text3); flex-shrink:0; opacity:0.7 }
+.cal-display:hover .cal-ico { opacity:1; color:var(--blue) }
+
+/* ── SCHOOL LEDGER EXTRAS ── */
+.class-strip {
+  position:sticky; top:57px; z-index:70;
+  background:rgba(13,13,16,0.97);
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border2);
+  display:flex; align-items:center; gap:6px;
+  padding:8px 14px; overflow-x:auto; scrollbar-width:none;
+}
+[data-theme="light"] .class-strip { background:var(--bg); border-bottom:1px solid var(--border) }
+.class-strip::-webkit-scrollbar { display:none }
+.cls-tab {
+  padding:5px 13px; border-radius:99px; font-size:0.75rem; font-weight:700;
+  border:1px solid var(--border); background:var(--surface2); color:var(--text3);
+  cursor:pointer; white-space:nowrap; flex-shrink:0;
+  transition:all 150ms; font-family:'Inter',sans-serif;
+}
+.cls-tab.active { background:#3B82F6; border-color:#3B82F6; color:#fff }
+.cls-tab:not(.active):active { background:var(--surface3) }
+.cls-tab-add {
+  padding:5px 12px; border-radius:99px; font-size:0.75rem; font-weight:700;
+  border:1.5px dashed rgba(59,130,246,0.4); background:rgba(59,130,246,0.04);
+  color:#3B82F6; cursor:pointer; white-space:nowrap; flex-shrink:0;
+  font-family:'Inter',sans-serif; transition:all 150ms;
+}
+.cls-tab-add:active { background:rgba(59,130,246,0.1) }
+.entry-row {
+  display:flex; align-items:center; gap:11px; padding:11px 14px;
+  border-bottom:1px solid var(--border2); cursor:pointer; transition:background 120ms;
+}
+.entry-row:last-child { border-bottom:none }
+.entry-row:active { background:var(--surface2) }
+.entry-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+.entry-body { flex:1; min-width:0 }
+.entry-title { font-size:0.86rem; font-weight:600; color:var(--text1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.entry-meta { font-size:0.72rem; color:var(--text3); margin-top:2px }
+.entry-right { text-align:right; flex-shrink:0 }
+.entry-amt { font-size:0.9rem; font-weight:700; color:var(--text1) }
+.entry-mode { font-size:0.62rem; font-weight:700; padding:2px 7px; border-radius:99px; margin-top:3px; display:inline-block }
+.mode-upi, .mode-online { background:rgba(34,197,94,0.12); color:#22c55e }
+.mode-cash { background:rgba(251,191,36,0.12); color:#fbbf24 }
+.mode-cheque { background:rgba(167,139,250,0.12); color:#a78bfa }
+.entry-actions { display:flex; gap:4px; opacity:0; transition:opacity 0.15s }
+.entry-row:hover .entry-actions { opacity:1 }
+.cat-breakdown-row {
+  display:flex; align-items:center; gap:11px;
+  padding:10px 2px; border-bottom:1px solid var(--border2);
+}
+.cat-breakdown-row:last-child { border-bottom:none }
+.cat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+.cat-icon-wrap { flex-shrink:0; width:32px; height:32px; border-radius:9px; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:0.85rem }
+.cat-info { flex:1; min-width:0 }
+.cat-name-txt { font-size:0.84rem; font-weight:700; color:var(--text1); margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.cat-bar-wrap { height:4px; background:var(--surface3); border-radius:99px; overflow:hidden }
+.cat-bar-fill { height:100%; border-radius:99px; transition:width 0.5s cubic-bezier(0.16,1,0.3,1) }
+.cat-val { font-size:0.84rem; font-weight:700; color:var(--text1); flex-shrink:0; text-align:right; min-width:52px }
+.cat-pct { font-size:0.82rem; color:#3B82F6; font-weight:700; flex-shrink:0; min-width:34px; text-align:right }
+.ov-class-hdr {
+  display:flex; align-items:center; gap:9px; padding:11px 14px;
+  cursor:pointer; transition:background 120ms; border-bottom:1px solid var(--border2);
+}
+.ov-class-hdr:active { background:var(--surface2) }
+.ov-class-badge { font-size:0.66rem; font-weight:700; color:#3B82F6; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); padding:2px 8px; border-radius:99px; white-space:nowrap; flex-shrink:0 }
+.ov-class-name { font-size:0.86rem; font-weight:600; color:var(--text1); flex:1 }
+.ov-class-total { font-size:0.86rem; font-weight:700; color:var(--text1); flex-shrink:0 }
+.ov-class-caret { color:var(--text3); transition:transform 0.25s cubic-bezier(0.16,1,0.3,1); font-size:0.78rem; flex-shrink:0 }
+.ov-class-caret.open { transform:rotate(90deg) }
+.ov-class-body { display:none; padding:8px 14px 10px; border-bottom:1px solid var(--border2) }
+.ov-class-body:last-child { border-bottom:none }
+.ov-class-body.open { display:block }
+.mini-cat-row { display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid var(--border2) }
+.mini-cat-row:last-child { border-bottom:none }
+.mini-cat-name { font-size:0.78rem; color:var(--text2); flex:1 }
+.mini-cat-amt { font-size:0.78rem; font-weight:600; color:var(--text1) }
+.mini-recents { margin-top:8px }
+.mini-rec-lbl { font-size:0.62rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px }
+.mini-rec-row { display:flex; align-items:center; gap:7px; padding:3px 0; font-size:0.74rem; border-bottom:1px solid var(--border2) }
+.mini-rec-row:last-child { border-bottom:none }
+.mini-rec-date { color:var(--text3); width:68px; flex-shrink:0 }
+.mini-rec-desc { color:var(--text2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.mini-rec-amt { color:var(--text1); font-weight:600; flex-shrink:0 }
+</style>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div id="page-home" class="page active">
+  <div class="top-header">
+    <div class="hdr-inner">
+      <div class="hdr-left">
+        <button class="avatar-btn" id="avatar-dash" onclick="openSheet('student')" style="background:#3B82F6">🎒</button>
+        <div>
+          <div class="hdr-greeting" id="hdr-greeting">Good day 👋</div>
+          <div class="hdr-name" id="hdr-name">School Ledger</div>
+        </div>
+      </div>
+      <div class="hdr-right">
+        <button class="hdr-add-btn" onclick="openSheet('addClass')" style="display:flex" title="Add Class">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="container" id="home-content"></div>
+</div>
+
+<!-- ══ CLASSES ══ -->
+<div id="page-classes" class="page">
+  <div class="top-header">
+    <div class="hdr-inner">
+      <div class="hdr-left"><div><div class="hdr-greeting">Track</div><div class="hdr-name">Expenses</div></div></div>
+      <div class="hdr-right">
+        <button class="hdr-add-btn" onclick="openAddExpense()" id="fab-classes" style="display:flex" title="Add Expense">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="class-strip" id="class-strip"></div>
+  <div class="container" id="classes-content"></div>
+</div>
+
+<!-- ══ OVERVIEW ══ -->
+<div id="page-overview" class="page">
+  <div class="top-header">
+    <div class="hdr-inner">
+      <div class="hdr-left"><div><div class="hdr-greeting">All Years</div><div class="hdr-name">Overview</div></div></div>
+    </div>
+  </div>
+  <div class="container" id="overview-content"></div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div id="page-settings" class="page">
+  <div class="top-header">
+    <div class="hdr-inner">
+      <div class="hdr-left"><div><div class="hdr-greeting">Manage</div><div class="hdr-name">Settings</div></div></div>
+    </div>
+  </div>
+  <div class="container">
+
+    <!-- PROFILE -->
+    <div>
+      <div class="sec-hdr-card" onclick="openSheet('student')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0112 0v2"/></svg> Profile</span></div>
+        <div class="sec-hdr-right"><button class="btn-circle" onclick="event.stopPropagation();openSheet('student')" style="border-color:rgba(59,130,246,0.25);background:rgba(59,130,246,0.08)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div>
+      </div>
+    </div>
+
+    <!-- APPEARANCE -->
+    <div style="margin-top:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-appearance')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg> Appearance</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret" id="caret-sec-appearance"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body closed" id="sec-appearance">
+        <div class="row-list-wrap">
+          <div style="padding:12px 14px 4px;border-bottom:1px solid var(--border2)">
+            <div style="font-size:0.86rem;font-weight:600;color:var(--text1);margin-bottom:1px">Theme</div>
+            <div style="font-size:0.7rem;color:var(--text3)">Choose your background style</div>
+          </div>
+          <div class="theme-picker">
+            <div class="theme-opt" id="topt-dark" onclick="setTheme('dark')">
+              <div class="theme-opt-preview"><svg width="44" height="30" viewBox="0 0 44 30" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="30" fill="#0d0d10"/><rect x="4" y="4" width="36" height="8" rx="2" fill="#141417"/><rect x="4" y="15" width="16" height="5" rx="1.5" fill="#1e1e25"/><rect x="24" y="15" width="16" height="5" rx="1.5" fill="#1e1e25"/><rect x="4" y="22" width="36" height="4" rx="1.5" fill="#141417"/></svg></div>
+              <div class="theme-opt-label">Black</div>
+              <div class="theme-opt-check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            </div>
+            <div class="theme-opt" id="topt-soft-dark" onclick="setTheme('soft-dark')">
+              <div class="theme-opt-preview"><svg width="44" height="30" viewBox="0 0 44 30" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="30" fill="#1a1a1f"/><rect x="4" y="4" width="36" height="8" rx="2" fill="#222228"/><rect x="4" y="15" width="16" height="5" rx="1.5" fill="#2a2a32"/><rect x="24" y="15" width="16" height="5" rx="1.5" fill="#2a2a32"/><rect x="4" y="22" width="36" height="4" rx="1.5" fill="#222228"/></svg></div>
+              <div class="theme-opt-label">Soft Dark</div>
+              <div class="theme-opt-check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            </div>
+            <div class="theme-opt" id="topt-light" onclick="setTheme('light')">
+              <div class="theme-opt-preview"><svg width="44" height="30" viewBox="0 0 44 30" xmlns="http://www.w3.org/2000/svg"><rect width="44" height="30" fill="#f2f2f7"/><rect x="4" y="4" width="36" height="8" rx="2" fill="#ffffff" stroke="#e0e0e8" stroke-width="0.8"/><rect x="4" y="15" width="16" height="5" rx="1.5" fill="#ffffff" stroke="#e0e0e8" stroke-width="0.8"/><rect x="24" y="15" width="16" height="5" rx="1.5" fill="#ffffff" stroke="#e0e0e8" stroke-width="0.8"/><rect x="4" y="22" width="36" height="4" rx="1.5" fill="#ffffff" stroke="#e0e0e8" stroke-width="0.8"/></svg></div>
+              <div class="theme-opt-label">Light</div>
+              <div class="theme-opt-check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            </div>
+          </div>
+          <div style="padding:12px 14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <div><div style="font-size:0.86rem;font-weight:600;color:var(--text1)">Text Size</div><div style="font-size:0.7rem;color:var(--text3);margin-top:1px">Adjust app font size</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px" id="font-size-btns">
+              <button onclick="setFontSize(13,'XS')" class="fs-btn" data-size="13">XS</button>
+              <button onclick="setFontSize(14,'S')" class="fs-btn" data-size="14">S</button>
+              <button onclick="setFontSize(16,'M')" class="fs-btn" data-size="16">M</button>
+              <button onclick="setFontSize(18,'L')" class="fs-btn" data-size="18">L</button>
+              <button onclick="setFontSize(20,'XL')" class="fs-btn" data-size="20">XL</button>
+            </div>
+            <div style="margin-top:10px">
+              <div class="range-wrap">
+                <div class="range-track"><div class="range-fill" id="range-fill" style="width:50%"></div></div>
+                <input type="range" class="custom-range" id="font-size-bar" min="0" max="4" step="1" value="2"
+                  oninput="const s=[13,14,16,18,20];const l=['XS','S','M','L','XL'];setFontSize(s[this.value],l[this.value]);updateRangeFill(this.value)"/>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px">
+              <span style="font-size:0.6rem;color:var(--text3)">Smaller</span>
+              <span style="font-size:0.6rem;color:var(--text3)">Larger</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDUCATION CHECKLIST -->
+    <div style="margin-top:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-checklist')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Education Checklist</span><span class="sec-badge" id="check-count-badge">0/8</span></div>
+        <div class="sec-hdr-right"><span class="sec-total" id="check-pct-text" style="color:var(--blue)">0%</span><span class="sec-caret" id="caret-sec-checklist"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body closed" id="sec-checklist">
+        <div style="padding:6px 0 8px"><div class="prog-track" style="height:4px"><div class="prog-fill" id="checklist-bar" style="background:#3B82F6;width:0%"></div></div></div>
+        <div class="row-list-wrap" id="checklist-items"></div>
+      </div>
+    </div>
+
+    <!-- DATA TOOLS -->
+    <div style="margin-top:8px;margin-bottom:4px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-tools')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg> Data Tools</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret" id="caret-sec-tools"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body closed" id="sec-tools">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+          <div class="more-row" onclick="exportData()" style="margin-bottom:0"><div class="more-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><div class="more-row-body"><div class="more-row-title">Export</div><div class="more-row-sub">Download JSON backup</div></div></div>
+          <div class="more-row" onclick="document.getElementById('import-file').click()" style="margin-bottom:0"><div class="more-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div><div class="more-row-body"><div class="more-row-title">Import</div><div class="more-row-sub">Restore from JSON</div></div></div>
+          <div class="more-row" onclick="loadSampleData()" style="margin-bottom:0"><div class="more-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><div class="more-row-body"><div class="more-row-title">Sample Data</div><div class="more-row-sub">Load demo data</div></div></div>
+          <div class="more-row" onclick="resetData()" style="margin-bottom:0"><div class="more-icon" style="color:var(--red)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></div><div class="more-row-body"><div class="more-row-title" style="color:var(--red)">Reset All</div><div class="more-row-sub">Clear everything</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)"/>
+    <div style="text-align:center;padding:16px 0 2px;color:var(--text3);font-size:0.62rem">v1.0 · Data on device only 🔒</div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <div class="tab-bar-inner">
+    <button class="tab-item active" id="tab-home" onclick="switchPage('home')">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <span class="tab-label">Home</span>
+    </button>
+    <button class="tab-item" id="tab-classes" onclick="switchPage('classes')">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+      <span class="tab-label">Classes</span>
+    </button>
+    <button class="tab-item" id="tab-overview" onclick="switchPage('overview')">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <span class="tab-label">Overview</span>
+    </button>
+    <button class="tab-item" id="tab-settings" onclick="switchPage('settings')">
+      <div class="tab-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+      <span class="tab-label">Settings</span>
+    </button>
+  </div>
+</div>
+
+<!-- SHEET OVERLAY -->
+<div class="sheet-overlay" id="overlay" onclick="overlayClick(event)"></div>
+
+<!-- STUDENT SHEET -->
+<div class="sheet" id="sheet-student">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr"><span class="sheet-title">Student Profile</span><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="fg"><label class="fl">Student Name</label><input class="fi" type="text" id="s-name" placeholder="Your child's name"/></div>
+    <div class="fg"><label class="fl">School Name</label><input class="fi" type="text" id="s-school" placeholder="e.g. Sunrise Public School"/></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeSheet()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveStudent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CLASS SHEET -->
+<div class="sheet" id="sheet-addClass">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr"><span class="sheet-title">Add Academic Class</span><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="fg"><label class="fl">Class / Grade</label><input class="fi" type="text" id="cls-name" placeholder="e.g. Class 1, LKG, Grade 6…"/></div>
+    <div class="form-row2">
+      <div class="fg"><label class="fl">Academic Year</label><input class="fi" type="number" id="cls-year" placeholder="2025" min="2000" max="2050"/></div>
+      <div class="fg"><label class="fl">School (optional)</label><input class="fi" type="text" id="cls-school" placeholder="School name"/></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeSheet()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveClass()">Add Class</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT EXPENSE SHEET -->
+<div class="sheet" id="sheet-expense">
+  <div class="sheet-handle"></div>
+  <div class="sheet-hdr"><span class="sheet-title" id="exp-sheet-title">Add Expense</span><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+  <div class="sheet-body">
+    <div class="fg"><label class="fl">Category</label>
+      <select class="fi fi-sel" id="exp-cat">
+        <option>📚 Tuition Fee</option><option>📖 Books &amp; Stationery</option>
+        <option>👕 Uniform</option><option>🚌 Transport</option>
+        <option>📝 Exam Fee</option><option>🎨 Extracurricular</option>
+        <option>🏕️ School Trips</option><option>📦 Miscellaneous</option>
+      </select>
+    </div>
+    <div class="form-row2">
+      <div class="fg"><label class="fl">Amount (₹)</label><input class="fi" type="number" id="exp-amt" placeholder="0" min="1"/></div>
+      <div class="fg"><label class="fl">Date</label><div id="exp-date-cal-wrap"></div></div>
+    </div>
+    <div class="fg"><label class="fl">Payment Mode</label>
+      <select class="fi fi-sel" id="exp-mode">
+        <option>UPI</option><option>Online Transfer</option><option>Cash</option><option>Cheque</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Note</label><input class="fi" type="text" id="exp-note" placeholder="e.g. Term 1 fees, Math textbook…"/></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeSheet()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveExpense()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM OVERLAY -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon-wrap"><div class="confirm-icon-circle">🗑️</div></div>
+    <div class="confirm-title" id="confirm-title">Are you sure?</div>
+    <div class="confirm-sub" id="confirm-sub">This cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-delete" id="confirm-ok" onclick="">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONSTANTS ──────────────────────────────────────────────────────
+const CATS = [
+  {key:"📚 Tuition Fee",    color:"#3B82F6"},
+  {key:"📖 Books & Stationery", color:"#22c55e"},
+  {key:"👕 Uniform",       color:"#fbbf24"},
+  {key:"🚌 Transport",     color:"#a78bfa"},
+  {key:"📝 Exam Fee",      color:"#f87171"},
+  {key:"🎨 Extracurricular",color:"#06b6d4"},
+  {key:"🏕️ School Trips",  color:"#84cc16"},
+  {key:"📦 Miscellaneous", color:"#94a3b8"},
+];
+const DEF_CHECKLIST = [
+  {id:"c1",label:"Collect all fee receipts",desc:"Keep physical & digital copies of every payment receipt",done:false},
+  {id:"c2",label:"Set annual education budget",desc:"Plan total school spend for the academic year upfront",done:false},
+  {id:"c3",label:"Track all category spends",desc:"Log expenses across tuition, books, uniform, transport",done:false},
+  {id:"c4",label:"Compare YoY fee increase",desc:"Note how fees have grown class-over-class",done:false},
+  {id:"c5",label:"Uniform & books renewal plan",desc:"Budget for new purchases before each academic year",done:false},
+  {id:"c6",label:"Extracurricular budget set",desc:"Allocate a fixed amount for activities per term",done:false},
+  {id:"c7",label:"Emergency school fund",desc:"Keep a small buffer for unplanned school expenses",done:false},
+  {id:"c8",label:"Export annual backup",desc:"Export a JSON backup at the end of each school year",done:false},
+];
+const STORE = "schoolLedger_v3";
+
+// ─── STATE ──────────────────────────────────────────────────────────
+let D = {
+  theme:"dark", fontSize:16,
+  student:"", school:"",
+  classes:[], expenses:[],
+  checklist: DEF_CHECKLIST.map(i=>({...i})),
+};
+let currentPage = "home";
+let activeClsId = null;
+let editExpId = null;
+let delExpId = null;
+
+// ─── PERSIST ────────────────────────────────────────────────────────
+function load(){
+  try{const r=localStorage.getItem(STORE);if(r){const p=JSON.parse(r);D={...D,...p};if(!D.checklist||!D.checklist.length)D.checklist=DEF_CHECKLIST.map(i=>({...i}))}}catch(e){}
+}
+function save(){localStorage.setItem(STORE,JSON.stringify(D))}
+
+// ─── THEME ──────────────────────────────────────────────────────────
+function setTheme(t){
+  D.theme=t;
+  document.documentElement.setAttribute("data-theme",t);
+  document.querySelectorAll(".theme-opt").forEach(el=>el.classList.remove("active"));
+  const opt=document.getElementById("topt-"+t);if(opt)opt.classList.add("active");
+  save();
+}
+function initTheme(){setTheme(D.theme||"dark")}
+
+// ─── FONT SIZE ───────────────────────────────────────────────────────
+function setFontSize(size,label){
+  D.fontSize=size;
+  document.documentElement.style.fontSize=size+"px";
+  document.querySelectorAll(".fs-btn").forEach(b=>b.classList.toggle("active",+b.dataset.size===size));
+  const idx={"XS":0,"S":1,"M":2,"L":3,"XL":4}[label]??2;
+  const bar=document.getElementById("font-size-bar");if(bar)bar.value=idx;
+  updateRangeFill(idx);
+  save();
+}
+function updateRangeFill(val){
+  const f=document.getElementById("range-fill");if(f)f.style.width=(val/4*100)+"%";
+}
+function initFontSize(){
+  const s=D.fontSize||16;
+  document.documentElement.style.fontSize=s+"px";
+  document.querySelectorAll(".fs-btn").forEach(b=>b.classList.toggle("active",+b.dataset.size===s));
+  const labels=[13,14,16,18,20];const idx=labels.indexOf(s);
+  const bar=document.getElementById("font-size-bar");if(bar)bar.value=idx>=0?idx:2;
+  updateRangeFill(idx>=0?idx:2);
+}
+
+// ─── GREETING ───────────────────────────────────────────────────────
+function greeting(){
+  const h=new Date().getHours();
+  if(h<12)return"Good morning ☀️";
+  if(h<17)return"Good afternoon 🌤️";
+  return"Good evening 🌙";
+}
+
+// ─── NAVIGATION ─────────────────────────────────────────────────────
+function switchPage(p){
+  currentPage=p;
+  document.querySelectorAll(".page").forEach(el=>el.classList.remove("active"));
+  document.getElementById("page-"+p).classList.add("active");
+  document.querySelectorAll(".tab-item").forEach(el=>el.classList.remove("active"));
+  document.getElementById("tab-"+p).classList.add("active");
+  if(p==="home")renderHome();
+  if(p==="classes")renderClasses();
+  if(p==="overview")renderOverview();
+  if(p==="settings")renderChecklist();
+}
+
+// ─── SHEETS ──────────────────────────────────────────────────────────
+let activeSheet=null;
+function openSheet(id){
+  closeSheet();
+  const sh=document.getElementById("sheet-"+id);if(!sh)return;
+  const ov=document.getElementById("overlay");
+  ov.classList.add("open");sh.classList.add("open");
+  activeSheet=id;document.body.classList.add("scroll-locked");
+  if(id==="student"){
+    document.getElementById("s-name").value=D.student||"";
+    document.getElementById("s-school").value=D.school||"";
+  }
+}
+function closeSheet(){
+  const ov=document.getElementById("overlay");ov.classList.remove("open");
+  document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("open"));
+  activeSheet=null;document.body.classList.remove("scroll-locked");
+}
+function overlayClick(e){if(e.target===e.currentTarget)closeSheet();}
+
+function openAddExpense(){
+  if(!activeClsId&&D.classes.length>0)activeClsId=D.classes[0].id;
+  if(!activeClsId){openSheet("addClass");return;}
+  editExpId=null;
+  document.getElementById("exp-sheet-title").textContent="Add Expense";
+  document.getElementById("exp-cat").value="📚 Tuition Fee";
+  document.getElementById("exp-amt").value="";
+  document.getElementById("exp-mode").value="UPI";
+  document.getElementById("exp-note").value="";
+  document.getElementById("exp-date-cal-wrap").innerHTML = calPickerHTML("expdate", today());
+  openSheet("expense");
+}
+function openEditExpense(id){
+  const e=D.expenses.find(x=>x.id===id);if(!e)return;
+  editExpId=id;
+  document.getElementById("exp-sheet-title").textContent="Edit Expense";
+  document.getElementById("exp-cat").value=e.cat;
+  document.getElementById("exp-amt").value=e.amt;
+  document.getElementById("exp-mode").value=e.mode;
+  document.getElementById("exp-note").value=e.note||"";
+  document.getElementById("exp-date-cal-wrap").innerHTML = calPickerHTML("expdate", e.date||today());
+  openSheet("expense");
+}
+
+// ─── STUDENT ─────────────────────────────────────────────────────────
+function saveStudent(){
+  D.student=document.getElementById("s-name").value.trim();
+  D.school=document.getElementById("s-school").value.trim();
+  save();closeSheet();renderHeader();toast("Profile saved");
+}
+function renderHeader(){
+  const g=document.getElementById("hdr-greeting");const n=document.getElementById("hdr-name");
+  if(g)g.textContent=greeting();
+  if(n)n.textContent=D.student?""+D.student+"'s Education":"School Ledger";
+  document.getElementById("avatar-dash").textContent=D.student?D.student[0].toUpperCase():"🎒";
+}
+
+// ─── CLASS ───────────────────────────────────────────────────────────
+function saveClass(){
+  const name=document.getElementById("cls-name").value.trim();
+  const year=document.getElementById("cls-year").value.trim();
+  const school=document.getElementById("cls-school").value.trim();
+  if(!name){toast("Enter class name");return;}
+  const cls={id:Date.now().toString(),name,year,school};
+  D.classes.push(cls);activeClsId=cls.id;
+  save();closeSheet();
+  if(currentPage==="home")renderHome();
+  if(currentPage==="classes")renderClasses();
+  toast("Class added");
+}
+
+// ─── EXPENSE ─────────────────────────────────────────────────────────
+function saveExpense(){
+  const cat=document.getElementById("exp-cat").value;
+  const amt=parseFloat(document.getElementById("exp-amt").value);
+  const dateEl=document.getElementById("cal-val-expdate");
+  const date=dateEl?dateEl.value:"";
+  const mode=document.getElementById("exp-mode").value;
+  const note=document.getElementById("exp-note").value.trim();
+  if(!amt||amt<=0){toast("Enter a valid amount");return;}
+  if(!date){toast("Select a date");return;}
+  if(editExpId){
+    const i=D.expenses.findIndex(e=>e.id===editExpId);
+    if(i!==-1)D.expenses[i]={...D.expenses[i],cat,amt,date,mode,note};
+    toast("Updated");
+  }else{
+    D.expenses.push({id:Date.now().toString(),classId:activeClsId,cat,amt,date,mode,note});
+    toast("Expense added");
+  }
+  save();closeSheet();rerender();
+}
+
+// ─── DELETE ──────────────────────────────────────────────────────────
+function askDeleteExp(id){
+  delExpId=id;
+  showConfirm("Delete Entry?","This expense entry will be permanently removed.",()=>{
+    D.expenses=D.expenses.filter(e=>e.id!==delExpId);
+    save();rerender();toast("Deleted");
+  });
+}
+
+// ─── CONFIRM ─────────────────────────────────────────────────────────
+let confirmCb=null;
+function showConfirm(title,sub,cb){
+  confirmCb=cb;
+  document.getElementById("confirm-title").textContent=title;
+  document.getElementById("confirm-sub").textContent=sub;
+  document.getElementById("confirm-ok").onclick=()=>{closeConfirm();if(confirmCb)confirmCb();};
+  document.getElementById("confirm-overlay").classList.add("open");
+}
+function closeConfirm(){document.getElementById("confirm-overlay").classList.remove("open");confirmCb=null;}
+
+// ─── CHECKLIST ───────────────────────────────────────────────────────
+function toggleCheck(id){
+  const item=D.checklist.find(c=>c.id===id);if(item)item.done=!item.done;
+  save();renderChecklist();
+}
+function renderChecklist(){
+  const done=D.checklist.filter(c=>c.done).length;
+  const total=D.checklist.length;
+  const pct=Math.round(done/total*100);
+  const badge=document.getElementById("check-count-badge");if(badge)badge.textContent=done+"/"+total;
+  const pctEl=document.getElementById("check-pct-text");if(pctEl)pctEl.textContent=pct+"%";
+  const bar=document.getElementById("checklist-bar");if(bar)bar.style.width=pct+"%";
+  const el=document.getElementById("checklist-items");if(!el)return;
+  el.innerHTML=D.checklist.map(item=>`
+    <div class="check-item ${item.done?"done":""}" onclick="toggleCheck('${item.id}')">
+      <div class="check-box">${item.done?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':""}</div>
+      <div><div class="check-label">${item.label}</div><div class="check-desc">${item.desc}</div></div>
+    </div>`).join("");
+}
+
+// ─── DATA TOOLS ──────────────────────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify(D,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="school-ledger-backup.json";a.click();toast("Exported ✓");
+}
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{D={...D,...JSON.parse(ev.target.result)};save();initTheme();initFontSize();renderAll();toast("Imported ✓")}catch(e){toast("Invalid JSON")}};
+  r.readAsText(file);e.target.value="";
+}
+function resetData(){
+  showConfirm("Reset All Data?","Every class and expense will be permanently wiped.",()=>{
+    D={...D,classes:[],expenses:[],checklist:DEF_CHECKLIST.map(i=>({...i}))};
+    activeClsId=null;save();renderAll();switchPage("home");toast("Data reset");
+  });
+}
+function loadSampleData(){
+  if(D.classes.length>0&&!confirm("Load sample data? Current data will be replaced."))return;
+  D.student="Arjun";D.school="Sunrise Public School";
+  D.classes=[
+    {id:"c1",name:"LKG",year:"2021",school:"Sunrise Public School"},
+    {id:"c2",name:"UKG",year:"2022",school:"Sunrise Public School"},
+    {id:"c3",name:"Class 1",year:"2023",school:"Sunrise Public School"},
+    {id:"c4",name:"Class 2",year:"2024",school:"Sunrise Public School"},
+    {id:"c5",name:"Class 3",year:"2025",school:"Sunrise Public School"},
+  ];
+  D.expenses=[
+    {id:"e1",classId:"c1",cat:"📚 Tuition Fee",amt:18000,date:"2021-06-05",mode:"Online Transfer",note:"Annual tuition"},
+    {id:"e2",classId:"c1",cat:"📖 Books & Stationery",amt:2200,date:"2021-06-10",mode:"Cash",note:"LKG workbooks"},
+    {id:"e3",classId:"c1",cat:"👕 Uniform",amt:1600,date:"2021-06-12",mode:"Cash",note:"2 sets uniform"},
+    {id:"e4",classId:"c1",cat:"🚌 Transport",amt:9600,date:"2021-07-01",mode:"UPI",note:"Annual bus fee"},
+    {id:"e5",classId:"c2",cat:"📚 Tuition Fee",amt:20000,date:"2022-06-03",mode:"Online Transfer",note:"Annual tuition"},
+    {id:"e6",classId:"c2",cat:"📖 Books & Stationery",amt:2600,date:"2022-06-08",mode:"Cash",note:"UKG books & notebooks"},
+    {id:"e7",classId:"c2",cat:"👕 Uniform",amt:1900,date:"2022-06-11",mode:"Cash",note:"Summer + winter uniform"},
+    {id:"e8",classId:"c2",cat:"🚌 Transport",amt:10500,date:"2022-07-01",mode:"UPI",note:"Annual bus fee"},
+    {id:"e9",classId:"c2",cat:"🎨 Extracurricular",amt:3600,date:"2022-08-15",mode:"UPI",note:"Drawing class annual"},
+    {id:"e10",classId:"c3",cat:"📚 Tuition Fee",amt:22500,date:"2023-06-02",mode:"Online Transfer",note:"Annual tuition"},
+    {id:"e11",classId:"c3",cat:"📖 Books & Stationery",amt:3100,date:"2023-06-07",mode:"Cash",note:"Class 1 NCERT books"},
+    {id:"e12",classId:"c3",cat:"👕 Uniform",amt:2200,date:"2023-06-09",mode:"Cash",note:"New uniform set"},
+    {id:"e13",classId:"c3",cat:"🚌 Transport",amt:11000,date:"2023-07-01",mode:"UPI",note:"Annual bus fee"},
+    {id:"e14",classId:"c3",cat:"📝 Exam Fee",amt:600,date:"2023-09-20",mode:"Cash",note:"Half-yearly exam"},
+    {id:"e15",classId:"c3",cat:"🏕️ School Trips",amt:1200,date:"2023-11-10",mode:"Cash",note:"Annual picnic trip"},
+    {id:"e16",classId:"c4",cat:"📚 Tuition Fee",amt:25000,date:"2024-06-01",mode:"Online Transfer",note:"Annual tuition"},
+    {id:"e17",classId:"c4",cat:"📖 Books & Stationery",amt:3600,date:"2024-06-06",mode:"Cash",note:"Class 2 books & supplies"},
+    {id:"e18",classId:"c4",cat:"👕 Uniform",amt:2500,date:"2024-06-10",mode:"Cash",note:"Uniform + sports kit"},
+    {id:"e19",classId:"c4",cat:"🚌 Transport",amt:12000,date:"2024-07-01",mode:"UPI",note:"Annual bus fee"},
+    {id:"e20",classId:"c4",cat:"🎨 Extracurricular",amt:5400,date:"2024-08-01",mode:"UPI",note:"Abacus + Drawing class"},
+    {id:"e21",classId:"c4",cat:"📝 Exam Fee",amt:800,date:"2024-09-22",mode:"Cash",note:"Half-yearly fee"},
+    {id:"e22",classId:"c5",cat:"📚 Tuition Fee",amt:27000,date:"2025-06-01",mode:"Online Transfer",note:"Annual tuition"},
+    {id:"e23",classId:"c5",cat:"📖 Books & Stationery",amt:4200,date:"2025-06-05",mode:"Cash",note:"Class 3 books"},
+    {id:"e24",classId:"c5",cat:"👕 Uniform",amt:2800,date:"2025-06-08",mode:"Cash",note:"Full new uniform set"},
+    {id:"e25",classId:"c5",cat:"🚌 Transport",amt:13200,date:"2025-07-01",mode:"UPI",note:"Annual bus fee"},
+    {id:"e26",classId:"c5",cat:"🎨 Extracurricular",amt:6000,date:"2025-08-10",mode:"UPI",note:"Keyboard + Abacus"},
+  ];
+  activeClsId="c5";
+  save();initTheme();renderAll();toast("Sample data loaded ✓");
+}
+
+// ─── CALENDAR PICKER (exact Goal Tracker impl) ───────────────────
+const CAL_SVG = '<svg class="cal-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const CAL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+const _cal = { month:new Date().getMonth(), year:new Date().getFullYear(), selected:null, id:null, viewMode:'days' };
+
+function calPickerHTML(id, val) {
+  const hasVal = val && val.length > 0;
+  const display = hasVal ? calFmtDisplay(val) : 'Select date';
+  return '<div class="cal-wrap" id="cal-wrap-'+id+'">' +
+    '<div class="cal-display '+(hasVal?'':'empty')+'" id="cal-disp-'+id+'" onclick="toggleCal(\''+id+'\')">' +
+    display+' '+CAL_SVG+'</div>' +
+    '<div class="cal-popup" id="cal-popup-'+id+'" style="display:none"></div>' +
+    '</div>' +
+    '<input type="hidden" id="cal-val-'+id+'" value="'+(val||'')+'"/>';
+}
+// val stored as YYYY-MM-DD, display as "26 Mar 2026"
+function calFmtDisplay(v) {
+  if (!v) return 'Select date';
+  const [y,m,d] = v.split('-');
+  return parseInt(d)+' '+CAL_MONTHS[parseInt(m)-1].slice(0,3)+' '+y;
+}
+function toggleCal(id) {
+  const popup = document.getElementById('cal-popup-'+id);
+  if (!popup) return;
+  const isOpen = popup.style.display !== 'none';
+  document.querySelectorAll('.cal-popup').forEach(p=>p.style.display='none');
+  if (isOpen) return;
+  _cal.id = id; _cal.viewMode = 'days';
+  const hidden = document.getElementById('cal-val-'+id);
+  const val = hidden ? hidden.value : '';
+  if (val) {
+    const [y,m,d] = val.split('-');
+    _cal.selected = new Date(+y, +m-1, +d);
+    _cal.month = _cal.selected.getMonth();
+    _cal.year  = _cal.selected.getFullYear();
+  } else {
+    _cal.selected = null;
+    _cal.month = new Date().getMonth();
+    _cal.year  = new Date().getFullYear();
+  }
+  popup.style.display = 'block';
+  renderCal();
+}
+function renderCal() {
+  const popup = document.getElementById('cal-popup-'+_cal.id);
+  if (!popup || popup.style.display==='none') return;
+  if (_cal.viewMode==='years') { renderCalYears(); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const firstDay = new Date(_cal.year, _cal.month, 1).getDay();
+  const daysInMonth = new Date(_cal.year, _cal.month+1, 0).getDate();
+  const daysInPrev  = new Date(_cal.year, _cal.month, 0).getDate();
+  let cells = '';
+  for (let i=firstDay-1; i>=0; i--) cells+=`<div class="cal-day other-month">${daysInPrev-i}</div>`;
+  for (let d=1; d<=daysInMonth; d++) {
+    const dt = new Date(_cal.year, _cal.month, d);
+    const isToday = dt.getTime()===today.getTime();
+    const isSel   = _cal.selected && dt.getTime()===_cal.selected.getTime();
+    cells+=`<div class="cal-day${isToday?' today':''}${isSel?' sel':''}" onclick="calPickDay(${d})">${d}</div>`;
+  }
+  const total = firstDay+daysInMonth;
+  const trail = total%7===0?0:7-(total%7);
+  for (let d=1; d<=trail; d++) cells+=`<div class="cal-day other-month">${d}</div>`;
+  const dows = CAL_DAYS.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  popup.innerHTML=`
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calShiftMonth(-1)">‹</button>
+      <div class="cal-month-label" onclick="calToggleYears()">${CAL_MONTHS[_cal.month]} ${_cal.year} ▾</div>
+      <button class="cal-nav-btn" onclick="calShiftMonth(1)">›</button>
+    </div>
+    <div class="cal-grid">${dows}${cells}</div>
+    <div class="cal-clear" onclick="calClear()">Clear date</div>`;
+}
+function renderCalYears() {
+  const popup = document.getElementById('cal-popup-'+_cal.id);
+  if (!popup) return;
+  const curY = new Date().getFullYear();
+  let html='';
+  for (let y=curY+5; y>=curY-10; y--)
+    html+=`<div class="cal-year-item${y===_cal.year?' sel':''}" onclick="calPickYear(${y})">${y}</div>`;
+  popup.innerHTML=`<div class="cal-nav"><button class="cal-nav-btn" onclick="calToggleYears()">✕</button><div class="cal-month-label">Select Year</div><div style="width:30px"></div></div><div class="cal-year-grid">${html}</div>`;
+}
+function calToggleYears(){ _cal.viewMode=_cal.viewMode==='years'?'days':'years'; renderCal(); }
+function calShiftMonth(dir){
+  _cal.month+=dir;
+  if(_cal.month<0){_cal.month=11;_cal.year--;}
+  if(_cal.month>11){_cal.month=0;_cal.year++;}
+  renderCal();
+}
+function calPickYear(y){ _cal.year=y; _cal.viewMode='days'; renderCal(); }
+function calPickDay(d) {
+  _cal.selected = new Date(_cal.year, _cal.month, d);
+  const yyyy = _cal.year;
+  const mm   = String(_cal.month+1).padStart(2,'0');
+  const dd   = String(d).padStart(2,'0');
+  const iso  = `${yyyy}-${mm}-${dd}`;
+  const hidden = document.getElementById('cal-val-'+_cal.id);
+  if (hidden) hidden.value = iso;
+  const disp = document.getElementById('cal-disp-'+_cal.id);
+  if (disp) { disp.classList.remove('empty'); disp.innerHTML = calFmtDisplay(iso)+' '+CAL_SVG; }
+  const popup = document.getElementById('cal-popup-'+_cal.id);
+  if (popup) popup.style.display='none';
+}
+function calClear() {
+  _cal.selected = null;
+  const hidden = document.getElementById('cal-val-'+_cal.id);
+  if (hidden) hidden.value='';
+  const disp = document.getElementById('cal-disp-'+_cal.id);
+  if (disp) { disp.classList.add('empty'); disp.innerHTML='Select date '+CAL_SVG; }
+  const popup = document.getElementById('cal-popup-'+_cal.id);
+  if (popup) popup.style.display='none';
+}
+// Close cal on outside click
+document.addEventListener('click', e=>{
+  if (!e.target.closest('.cal-wrap'))
+    document.querySelectorAll('.cal-popup').forEach(p=>p.style.display='none');
+});
+const fmt=n=>"₹"+Number(n).toLocaleString("en-IN");
+const today=()=>new Date().toISOString().slice(0,10);
+function fmtDate(d){
+  if(!d)return"";const[y,m,dy]=d.split("-");
+  return`${parseInt(dy)} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]} ${y}`;
+}
+function catColor(k){return(CATS.find(c=>c.key===k)||{color:"#3B82F6"}).color;}
+function catEmoji(k){return k.split(" ")[0];}
+function catLabel(k){return k.replace(/^\S+\s/,"");}
+function modeCls(m){if(m==="Cash")return"mode-cash";if(m==="Cheque")return"mode-cheque";return"mode-upi";}
+function fmtCr(n){
+  if(n>=10000000)return"₹"+(n/10000000).toFixed(2)+"Cr";
+  if(n>=100000)return"₹"+(n/100000).toFixed(2)+"L";
+  if(n>=1000)return"₹"+(n/1000).toFixed(1)+"K";
+  return"₹"+n.toLocaleString("en-IN");
+}
+function toggleSec(id){
+  const body=document.getElementById(id);const caret=document.getElementById("caret-"+id);
+  if(!body)return;
+  const closed=body.classList.contains("closed");
+  body.classList.toggle("closed",!closed);
+  if(caret)caret.classList.toggle("open",closed);
+}
+
+// ─── RENDER HOME ────────────────────────────────────────────────────
+function renderHome(){
+  const el=document.getElementById("home-content");
+  if(D.classes.length===0){
+    el.innerHTML=`<div style="text-align:center;padding:48px 20px">
+      <div style="font-size:3rem;margin-bottom:16px">🎒</div>
+      <div style="font-size:1.05rem;font-weight:800;color:var(--text1);margin-bottom:8px">Welcome to School Ledger</div>
+      <div style="font-size:0.82rem;color:var(--text3);line-height:1.6;margin-bottom:24px">Track every rupee spent on your child's education — class by class, year by year.</div>
+      <button class="btn btn-primary" onclick="openSheet('addClass')">Add First Class</button>
+    </div>`;return;
+  }
+  const all=D.expenses;
+  const total=all.reduce((s,e)=>s+e.amt,0);
+  const thisYr=new Date().getFullYear().toString();
+  const thisYrExps=all.filter(e=>e.date&&e.date.startsWith(thisYr));
+  const thisYrTotal=thisYrExps.reduce((s,e)=>s+e.amt,0);
+  const catMap={};all.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
+  const avgPerClass=D.classes.length>0?Math.round(total/D.classes.length):0;
+
+  let html=`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
+    <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border2)">
+      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">Total Education Spend</div>
+      <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1;color:${total>0?'var(--green)':'var(--text3)'}">${total>0?fmtCr(total):'₹0'}</div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">Across all ${D.classes.length} ${D.classes.length===1?'class':'classes'} · ${all.length} ${all.length===1?'entry':'entries'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="padding:13px 18px;border-right:1px solid var(--border2);border-bottom:1px solid var(--border2)">
+        <div class="lbl" style="margin-bottom:5px">This Year</div>
+        <div style="font-size:1.05rem;font-weight:800;color:${thisYrTotal>0?'var(--green)':'var(--text3)'};letter-spacing:-0.3px">${thisYrTotal>0?fmtCr(thisYrTotal):'—'}</div>
+      </div>
+      <div style="padding:13px 18px;border-bottom:1px solid var(--border2)">
+        <div class="lbl" style="margin-bottom:5px">Avg/Class</div>
+        <div style="font-size:1.05rem;font-weight:800;color:${avgPerClass>0?'var(--text1)':'var(--text3)'};letter-spacing:-0.3px">${avgPerClass>0?fmtCr(avgPerClass):'—'}</div>
+      </div>
+      <div style="padding:13px 18px;border-right:1px solid var(--border2)">
+        <div class="lbl" style="margin-bottom:5px">Top Category</div>
+        <div style="font-size:0.88rem;font-weight:800;color:${topCat?'var(--text1)':'var(--text3)'}">${topCat?catEmoji(topCat[0])+" "+catLabel(topCat[0]):'—'}</div>
+      </div>
+      <div style="padding:13px 18px">
+        <div class="lbl" style="margin-bottom:5px">Classes</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--text1)">${D.classes.length}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Category Breakdown — only show if there are expenses
+  if(all.length>0){
+    html+=`<div style="margin-bottom:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-home-cats')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Category Breakdown</span><span class="sec-badge">${Object.keys(catMap).length} categories</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body" id="sec-home-cats">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
+          <div style="padding:4px 14px 8px">
+            ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
+              const pct=total>0?Math.round(catMap[c.key]/total*100):0;
+              return`<div class="cat-breakdown-row">
+                <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
+                <div class="cat-info">
+                  <div class="cat-name-txt">${catLabel(c.key)}</div>
+                  <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div>
+                </div>
+                <div class="cat-val">${fmt(catMap[c.key])}</div>
+                <div class="cat-pct">${pct}%</div>
+              </div>`;
+            }).join("")}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Recent entries — always show, but with nudge when empty
+  const recent=all.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,6);
+  if(all.length===0){
+    // No expenses yet — show a single clean nudge card, no collapsible
+    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
+      <div style="text-align:center;padding:28px 20px">
+        <div style="font-size:1.6rem;margin-bottom:10px;opacity:0.4">💸</div>
+        <div style="font-size:0.86rem;font-weight:700;color:var(--text1);margin-bottom:5px">No expenses yet</div>
+        <div style="font-size:0.76rem;color:var(--text3);line-height:1.5;margin-bottom:16px">Go to Classes tab and tap the + button<br>to record your first expense</div>
+        <button class="btn btn-primary btn-sm" onclick="switchPage('classes')">Go to Classes</button>
+      </div>
+    </div>`;
+  } else {
+    html+=`<div style="margin-bottom:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-home-recent')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55;flex-shrink:0"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> Recent Expenses</span><span class="sec-badge">${all.length} total</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-home-recent"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body" id="sec-home-recent">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
+    recent.forEach(e=>{
+      const cls=D.classes.find(c=>c.id===e.classId);
+      html+=entryRowHtml(e,cls?cls.name:"");
+    });
+    if(all.length>6)html+=`<div style="padding:11px 14px;text-align:center"><button onclick="switchPage('overview')" style="background:none;border:none;color:#3B82F6;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">View all ${all.length} entries →</button></div>`;
+    html+=`</div></div></div>`;
+  }
+  el.innerHTML=html;
+}
+
+// ─── RENDER CLASSES ──────────────────────────────────────────────────
+function renderClasses(){
+  const strip=document.getElementById("class-strip");
+  const content=document.getElementById("classes-content");
+  if(D.classes.length===0){
+    strip.innerHTML="";
+    content.innerHTML=`<div style="text-align:center;padding:48px 20px">
+      <div style="font-size:2.5rem;margin-bottom:14px">🏫</div>
+      <div style="font-size:0.9rem;font-weight:700;color:var(--text1);margin-bottom:6px">No Classes Yet</div>
+      <div style="font-size:0.8rem;color:var(--text3);margin-bottom:20px">Add your first class to start tracking expenses</div>
+      <button class="btn btn-primary btn-sm" onclick="openSheet('addClass')">Add First Class</button>
+    </div>`;return;
+  }
+  if(!activeClsId||!D.classes.find(c=>c.id===activeClsId))activeClsId=D.classes[0].id;
+  // Strip
+  strip.innerHTML=D.classes.map(c=>`<button class="cls-tab ${c.id===activeClsId?"active":""}" onclick="selectClass('${c.id}')">${c.name}</button>`).join("")+
+    `<button class="cls-tab-add" onclick="openSheet('addClass')">Add Class</button>`;
+  // Content
+  const cls=D.classes.find(c=>c.id===activeClsId);
+  const exps=D.expenses.filter(e=>e.classId===activeClsId);
+  const total=exps.reduce((s,e)=>s+e.amt,0);
+  const catMap={};exps.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+  const sorted=exps.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  let html=`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
+    <div style="padding:16px 18px 13px;border-bottom:1px solid var(--border2)">
+      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">${cls.name} · Total Spend</div>
+      <div style="font-size:2rem;font-weight:800;letter-spacing:-0.8px;line-height:1;color:var(--green)">${fmtCr(total)}</div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">${exps.length} entries${cls.year?" · "+cls.year:""}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="padding:13px 18px;border-right:1px solid var(--border2)">
+        <div class="lbl" style="margin-bottom:4px">Categories</div>
+        <div style="font-size:1rem;font-weight:800;color:var(--text1)">${Object.keys(catMap).length}</div>
+      </div>
+      <div style="padding:13px 18px">
+        <div class="lbl" style="margin-bottom:4px">School</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cls.school||"—"}</div>
+      </div>
+    </div>
+  </div>`;
+
+  if(exps.length>0){
+    html+=`<div style="margin-bottom:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-cls-cats')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> By Category</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body" id="sec-cls-cats">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
+          <div style="padding:4px 14px 8px">
+            ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
+              const pct=total>0?Math.round(catMap[c.key]/total*100):0;
+              return`<div class="cat-breakdown-row">
+                <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
+                <div class="cat-info"><div class="cat-name-txt">${catLabel(c.key)}</div>
+                <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>
+                <div class="cat-val">${fmt(catMap[c.key])}</div>
+                <div class="cat-pct">${pct}%</div>
+              </div>`;}).join("")}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if(sorted.length===0){
+    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
+      <div style="text-align:center;padding:28px 20px">
+        <div style="font-size:1.6rem;margin-bottom:10px;opacity:0.4">💸</div>
+        <div style="font-size:0.86rem;font-weight:700;color:var(--text1);margin-bottom:5px">No expenses for ${cls.name}</div>
+        <div style="font-size:0.76rem;color:var(--text3);line-height:1.5;margin-bottom:16px">Tap the + button above to record<br>your first expense for this class</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddExpense()">Add Expense</button>
+      </div>
+    </div>`;
+  } else {
+    html+=`<div style="margin-bottom:8px">
+      <div class="sec-hdr-card" onclick="toggleSec('sec-cls-entries')">
+        <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> All Entries</span><span class="sec-badge">${sorted.length}</span></div>
+        <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-cls-entries"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+      </div>
+      <div class="sec-body" id="sec-cls-entries">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
+    sorted.forEach(e=>{html+=entryRowHtml(e,"");});
+    html+=`</div></div></div>`;
+  }
+  content.innerHTML=html;
+}
+
+function selectClass(id){activeClsId=id;renderClasses();}
+
+// ─── RENDER OVERVIEW ────────────────────────────────────────────────
+function renderOverview(){
+  const el=document.getElementById("overview-content");
+  if(D.classes.length===0){
+    el.innerHTML=`<div class="empty" style="padding:56px 20px"><div class="empty-icon">📊</div><div class="empty-text">No data yet. Add classes and expenses to see the overview.</div></div>`;return;
+  }
+  const all=D.expenses;const grand=all.reduce((s,e)=>s+e.amt,0);
+  const catMap={};all.forEach(e=>{catMap[e.cat]=(catMap[e.cat]||0)+e.amt;});
+
+  let html=`
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:10px">
+    <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border2)">
+      <div style="font-size:0.65rem;font-weight:700;color:var(--text3);letter-spacing:0.5px;margin-bottom:6px;text-transform:uppercase">Grand Total · All Classes</div>
+      <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--green)">${fmtCr(grand)}</div>
+      <div style="font-size:0.72rem;color:var(--text3);margin-top:5px">${all.length} entries · ${D.classes.length} classes</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr)">
+      ${D.classes.slice(0,3).map((c,i)=>{
+        const t=D.expenses.filter(e=>e.classId===c.id).reduce((s,e)=>s+e.amt,0);
+        return`<div style="padding:11px 14px${i<2?";border-right:1px solid var(--border2)":""}">
+          <div class="lbl" style="margin-bottom:3px">${c.name}</div>
+          <div style="font-size:0.88rem;font-weight:800;color:var(--text1)">${fmtCr(t)}</div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+
+  html+=`<div style="margin-bottom:8px">
+    <div class="sec-hdr-card" onclick="toggleSec('sec-ov-cats')">
+      <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Overall by Category</span><span class="sec-badge">${Object.keys(catMap).length} types</span></div>
+      <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-ov-cats"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+    </div>
+    <div class="sec-body" id="sec-ov-cats">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">
+        <div style="padding:4px 14px 8px">
+          ${CATS.filter(c=>catMap[c.key]>0).map(c=>{
+            const pct=grand>0?Math.round(catMap[c.key]/grand*100):0;
+            return`<div class="cat-breakdown-row">
+              <div class="cat-icon-wrap">${catEmoji(c.key)}</div>
+              <div class="cat-info"><div class="cat-name-txt">${catLabel(c.key)}</div>
+              <div class="cat-bar-wrap"><div class="cat-bar-fill" style="width:${pct}%;background:${c.color}"></div></div></div>
+              <div class="cat-val">${fmt(catMap[c.key])}</div>
+              <div class="cat-pct">${pct}%</div>
+            </div>`;}).join("")}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  html+=`<div style="margin-bottom:8px">
+    <div class="sec-hdr-card" onclick="toggleSec('sec-ov-classes')">
+      <div class="sec-hdr-left"><span class="sec-hdr-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> By Class</span><span class="sec-badge">${D.classes.length} classes</span></div>
+      <div class="sec-hdr-right"><span class="sec-caret open" id="caret-sec-ov-classes"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span></div>
+    </div>
+    <div class="sec-body" id="sec-ov-classes">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:8px">`;
+  D.classes.forEach((cls,ci)=>{
+    const exps=all.filter(e=>e.classId===cls.id);
+    const ctotal=exps.reduce((s,e)=>s+e.amt,0);
+    const cm={};exps.forEach(e=>{cm[e.cat]=(cm[e.cat]||0)+e.amt;});
+    const topExps=exps.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,4);
+    const bid="ov_"+cls.id;
+    html+=`<div class="ov-class-hdr" onclick="toggleOvClass('${bid}')">
+      <span class="ov-class-badge">${cls.year||"—"}</span>
+      <span class="ov-class-name">${cls.name}${cls.school?" · "+cls.school:""}</span>
+      <span class="ov-class-total">${fmt(ctotal)}</span>
+      <span class="ov-class-caret" id="chev_${bid}">›</span>
+    </div>
+    <div class="ov-class-body ${ci===D.classes.length-1?"":""}${ci===D.classes.length-1?"last":""}" id="${bid}" style="border-bottom:1px solid var(--border2)">`;
+    if(exps.length===0){html+=`<div style="font-size:0.78rem;color:var(--text3);padding:4px 0">No expenses recorded.</div>`;}
+    else{
+      Object.entries(cm).sort((a,b)=>b[1]-a[1]).forEach(([cat,amt])=>{
+        html+=`<div class="mini-cat-row"><span style="font-size:0.85rem;width:22px;flex-shrink:0">${catEmoji(cat)}</span><span class="mini-cat-name">${catLabel(cat)}</span><span class="mini-cat-amt">${fmt(amt)}</span></div>`;
+      });
+      html+=`<div class="mini-recents"><div class="mini-rec-lbl">Recent</div>`;
+      topExps.forEach(e=>{html+=`<div class="mini-rec-row"><span class="mini-rec-date">${fmtDate(e.date)}</span><span class="mini-rec-desc">${e.note||catLabel(e.cat)}</span><span class="mini-rec-amt">${fmt(e.amt)}</span></div>`;});
+      html+=`</div>`;
+      if(exps.length>4)html+=`<div style="margin-top:6px"><button onclick="selectClass('${cls.id}');switchPage('classes')" style="background:none;border:none;color:#3B82F6;font-size:0.74rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;padding:0">View all ${exps.length} entries →</button></div>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div></div></div>`;
+  el.innerHTML=html;
+}
+
+function toggleOvClass(id){
+  const el=document.getElementById(id);const ch=document.getElementById("chev_"+id);
+  if(!el)return;el.classList.toggle("open");if(ch)ch.classList.toggle("open");
+}
+
+// ─── ENTRY ROW HTML ──────────────────────────────────────────────────
+function entryRowHtml(e,clsLabel){
+  return`<div class="entry-row">
+    <div class="entry-dot" style="background:${catColor(e.cat)}"></div>
+    <div class="entry-body">
+      <div class="entry-title">${catEmoji(e.cat)} ${e.note||catLabel(e.cat)}</div>
+      <div class="entry-meta">${fmtDate(e.date)}${clsLabel?" · "+clsLabel:""} · ${catLabel(e.cat)}</div>
+    </div>
+    <div class="entry-right">
+      <div class="entry-amt">${fmt(e.amt)}</div>
+      <span class="entry-mode ${modeCls(e.mode)}">${e.mode}</span>
+    </div>
+    <div class="entry-actions">
+      <button class="btn-circle" onclick="event.stopPropagation();openEditExpense('${e.id}')" title="Edit">✏️</button>
+      <button class="btn-del" onclick="event.stopPropagation();askDeleteExp('${e.id}')" title="Delete">✕</button>
+    </div>
+  </div>`;
+}
+
+function rerender(){
+  if(currentPage==="home")renderHome();
+  if(currentPage==="classes")renderClasses();
+  if(currentPage==="overview")renderOverview();
+}
+function renderAll(){renderHeader();renderHome();renderChecklist();}
+
+// ─── TOAST ───────────────────────────────────────────────────────────
+function toast(msg){
+  const el=document.getElementById("toast");el.textContent=msg;
+  el.classList.add("show");setTimeout(()=>el.classList.remove("show"),2200);
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────
+load();initTheme();initFontSize();renderAll();
+if(!D.student)setTimeout(()=>openSheet("student"),700);
+</script>
+</body>
+</html>
