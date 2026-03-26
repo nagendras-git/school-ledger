@@ -1381,10 +1381,21 @@ let delExpId = null;
 function load(){
   try{
     const r=localStorage.getItem(STORE);
-    if(r){const p=JSON.parse(r);D={...D,...p};if(!D.checklist||!D.checklist.length)D.checklist=DEF_CHECKLIST.map(i=>({...i}));}
+    if(r){
+      const p=JSON.parse(r);
+      D={...D,...p};
+      if(!D.checklist||!D.checklist.length)D.checklist=DEF_CHECKLIST.map(i=>({...i}));
+      // Restore manually-chosen active class
+      if(p.activeClsId && D.classes.find(function(c){return c.id===p.activeClsId;})){
+        activeClsId=p.activeClsId;
+      }
+    }
   }catch(e){}
 }
-function save(){localStorage.setItem(STORE,JSON.stringify(D));}
+function save(){
+  // Persist activeClsId alongside D
+  localStorage.setItem(STORE, JSON.stringify({...D, activeClsId: activeClsId}));
+}
 
 // ─── THEME ──────────────────────────────────────────────────────────
 function setTheme(t){
@@ -1653,7 +1664,7 @@ function saveEditClass(id){
     year:startYear+'\u2013'+(endYear+'').slice(-2)
   };
   if(setActive) activeClsId=id;
-  else if(activeClsId!==id) activeClsId=getActiveClass()||activeClsId;
+  // else: keep whatever activeClsId already is — don't auto-override
   save();closeSheet();renderClasses();renderHome();toast("Class updated");
 }
 function askDeleteClass(id){
@@ -1987,8 +1998,10 @@ function renderHome(){
   const highCls=classTotals.reduce(function(a,b){return b.t>a.t?b:a;});
   const withExp=classTotals.filter(function(x){return x.t>0;});
   const lowCls=withExp.length>1?withExp.reduce(function(a,b){return b.t<a.t?b:a;}):null;
-  activeClsId=getActiveClass()||activeClsId;
-  if(!activeClsId||!D.classes.find(function(c){return c.id===activeClsId;}))activeClsId=D.classes[D.classes.length-1].id;
+  // Only auto-detect if no class has been manually chosen yet
+  if(!activeClsId||!D.classes.find(function(c){return c.id===activeClsId;})){
+    activeClsId=getActiveClass()||D.classes[D.classes.length-1].id;
+  }
   const acls=D.classes.find(function(c){return c.id===activeClsId;});
 
   // ── Hero card ──
