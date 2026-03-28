@@ -2008,8 +2008,8 @@ const CHEV_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 function entryRowHtml(e, clsLabel){
   return '<div class="entry-row">'
     +'<div class="entry-body">'
-    +'<div class="entry-title"><span style="display:inline-flex;vertical-align:middle;margin-right:5px;opacity:0.75">'+catIcon(e.cat)+'</span>'+(e.note||catLabel(e.cat))+'</div>'
-    +'<div class="entry-meta">'+fmtDate(e.date)+(clsLabel?' \u00b7 '+clsLabel:'')+' \u00b7 '+catLabel(e.cat)+(e.receipt?' \u00b7 #'+e.receipt:'')+'</div>'
+    +'<div class="entry-title"><span style="display:inline-flex;vertical-align:middle;margin-right:5px;opacity:0.75">'+catIcon(e.cat)+'</span>'+catLabel(e.cat)+'</div>'
+    +'<div class="entry-meta">'+fmtDate(e.date)+(clsLabel?' \u00b7 '+clsLabel:'')+( e.note?' \u00b7 '+e.note:'' )+(e.receipt?' \u00b7 #'+e.receipt:'')+'</div>'
     +'</div>'
     +'<div class="entry-right">'
     +'<div class="entry-amt">'+fmt(e.amt)+'</div>'
