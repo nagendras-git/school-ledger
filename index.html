@@ -846,17 +846,20 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
   font-family:'Inter',sans-serif; font-size:1rem; font-weight:500;
   display:flex; align-items:center; justify-content:space-between;
   cursor:pointer; transition:border-color 150ms; user-select:none;
+  box-sizing:border-box;
 }
 .cal-display:hover { border-color:var(--blue) }
 .cal-display.empty { color:var(--text3) }
+.cal-display.active { border-color:var(--blue); border-bottom-left-radius:0; border-bottom-right-radius:0; }
 .cal-popup {
-  position:fixed;
-  width:252px;
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg);
+  position:relative;
+  width:100%;
+  background:var(--surface); border:1px solid var(--blue);
+  border-top:none;
+  border-bottom-left-radius:var(--r-lg); border-bottom-right-radius:var(--r-lg);
   overflow:hidden;
-  animation:calIn 0.15s var(--ease) both;
-  z-index:9999;
-  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  z-index:10;
+  box-shadow:0 8px 20px rgba(0,0,0,0.3);
 }
 @keyframes calIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
 .cal-nav { display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-bottom:1px solid var(--border2) }
@@ -1216,6 +1219,7 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
       <select class="fi fi-sel" id="cls-name-select" onchange="handleClassNameSelect(this.value)">
         <option value="">— Select a class —</option>
         <option value="Play Group">Play Group</option>
+        <option value="Nursery">Nursery</option>
         <option value="PP1">PP1 (Pre-Primary 1)</option>
         <option value="PP2">PP2 (Pre-Primary 2)</option>
         <option value="LKG">LKG (Lower Kindergarten)</option>
@@ -1297,10 +1301,12 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
   <div class="sheet-body">
     <div class="fg"><label class="fl">Category</label>
       <select class="fi fi-sel" id="exp-cat">
-        <option>📚 Tuition Fee</option><option>📖 Books &amp; Stationery</option>
+        <option>📚 Tuition Fee</option><option>🏫 Admission Fee</option><option>📋 Application Fee</option>
+        <option>📖 Books &amp; Stationery</option>
         <option>👕 Uniform</option><option>🚌 Transport</option>
         <option>📝 Exam Fee</option><option>🎨 Extracurricular</option>
         <option>🏕️ School Trips</option><option>📦 Miscellaneous</option>
+        <option>🔖 Others</option>
       </select>
     </div>
     <div class="form-row2">
@@ -1347,6 +1353,8 @@ input[type=range].custom-range::-moz-range-track{background:transparent;height:4
 // ─── CONSTANTS ──────────────────────────────────────────────────────
 const CATS = [
   {key:"📚 Tuition Fee",    color:"#3B82F6"},
+  {key:"🏫 Admission Fee",  color:"#8b5cf6"},
+  {key:"📋 Application Fee",color:"#ec4899"},
   {key:"📖 Books & Stationery", color:"#22c55e"},
   {key:"👕 Uniform",       color:"#fbbf24"},
   {key:"🚌 Transport",     color:"#a78bfa"},
@@ -1354,6 +1362,7 @@ const CATS = [
   {key:"🎨 Extracurricular",color:"#06b6d4"},
   {key:"🏕️ School Trips",  color:"#84cc16"},
   {key:"📦 Miscellaneous", color:"#94a3b8"},
+  {key:"🔖 Others",        color:"#64748b"},
 ];
 const DEF_CHECKLIST = [
   {id:"c1",label:"Collect all fee receipts",desc:"Keep physical & digital copies of every payment receipt",done:false},
@@ -1635,7 +1644,7 @@ function saveClass(){
 }
 function openEditClass(id){
   const c=D.classes.find(x=>x.id===id);if(!c)return;
-  const knownClasses=["Play Group","PP1","PP2","LKG","UKG",
+  const knownClasses=["Nursery","Play Group","PP1","PP2","LKG","UKG",
     "1st Standard","2nd Standard","3rd Standard","4th Standard","5th Standard",
     "6th Standard","7th Standard","8th Standard","9th Standard","10th Standard",
     "Intermediate 1st Year","Intermediate 2nd Year","Graduation","Post Graduation"];
@@ -1853,7 +1862,12 @@ function toggleCal(id) {
   const popup = document.getElementById('cal-popup-'+id);
   if (!popup) return;
   const isOpen = popup.style.display !== 'none';
-  document.querySelectorAll('.cal-popup').forEach(function(p){p.style.display='none';});
+  // Close all other open calendars
+  document.querySelectorAll('.cal-popup').forEach(function(p){
+    p.style.display='none';
+    const wrap = p.previousElementSibling;
+    if(wrap && wrap.classList) wrap.classList.remove('active');
+  });
   if (isOpen) return;
   _cal.id = id; _cal.viewMode = 'days';
   const hidden = document.getElementById('cal-val-'+id);
@@ -1864,25 +1878,9 @@ function toggleCal(id) {
   } else {
     _cal.selected=null;_cal.month=new Date().getMonth();_cal.year=new Date().getFullYear();
   }
-  // Position popup — compute once from display field rect, clamp to viewport
+  // Mark display as active (for border styling)
   const disp = document.getElementById('cal-disp-'+id);
-  if (disp) {
-    const rect = disp.getBoundingClientRect();
-    const popupW = 252;
-    const popupH = 300;
-    // Always try below first
-    let top = rect.bottom + 6;
-    // Flip above if not enough room
-    if (top + popupH > window.innerHeight - 16) top = rect.top - popupH - 6;
-    // Align right edge of popup to right edge of field
-    let left = rect.right - popupW;
-    // Clamp horizontally
-    if (left < 8) left = 8;
-    if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
-    popup.style.top  = Math.round(top)  + 'px';
-    popup.style.left = Math.round(left) + 'px';
-    popup.style.width = popupW + 'px';
-  }
+  if(disp) disp.classList.add('active');
   popup.style.display = 'block';
   renderCal();
 }
@@ -1941,7 +1939,7 @@ function calPickDay(d) {
   const hidden=document.getElementById('cal-val-'+_cal.id);
   if(hidden)hidden.value=iso;
   const disp=document.getElementById('cal-disp-'+_cal.id);
-  if(disp){disp.classList.remove('empty');disp.innerHTML=calFmtDisplay(iso)+' '+CAL_SVG;}
+  if(disp){disp.classList.remove('empty','active');disp.innerHTML=calFmtDisplay(iso)+' '+CAL_SVG;}
   const popup=document.getElementById('cal-popup-'+_cal.id);
   if(popup)popup.style.display='none';
 }
@@ -1949,13 +1947,15 @@ function calClear() {
   _cal.selected=null;
   const hidden=document.getElementById('cal-val-'+_cal.id);if(hidden)hidden.value='';
   const disp=document.getElementById('cal-disp-'+_cal.id);
-  if(disp){disp.classList.add('empty');disp.innerHTML='Select date '+CAL_SVG;}
+  if(disp){disp.classList.add('empty');disp.classList.remove('active');disp.innerHTML='Select date '+CAL_SVG;}
   const popup=document.getElementById('cal-popup-'+_cal.id);
   if(popup)popup.style.display='none';
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('.cal-wrap') && !e.target.closest('.cal-popup'))
+  if(!e.target.closest('.cal-wrap')){
     document.querySelectorAll('.cal-popup').forEach(function(p){p.style.display='none';});
+    document.querySelectorAll('.cal-display').forEach(function(d){d.classList.remove('active');});
+  }
 });
 
 // ─── HELPERS ────────────────────────────────────────────────────────
@@ -1978,6 +1978,9 @@ function catIcon(k){
     '🎨':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg>',
     '🏕':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-8 4 5 3-3 4 6H3z"/><circle cx="17" cy="7" r="2"/></svg>',
     '📦':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+    '🏫':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/><line x1="12" y1="2" x2="12" y2="9"/></svg>',
+    '📋':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>',
+    '🔖':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
   };
   const emoji = k.split(' ')[0].replace(/\uFE0F/g,'');
   return icons[emoji] || icons['📦'];
